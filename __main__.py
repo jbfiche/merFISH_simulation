@@ -10,6 +10,7 @@ import yaml
 import os, datetime
 from datetime import datetime
 import os.path as path
+import matplotlib.pyplot as plt
 
 # Open the configuration file
 # ---------------------------
@@ -39,35 +40,27 @@ simulationdir = os.path.join(
 )
 
 os.mkdir(simulationdir)
-
-# Test to open the codebook file
-# ------------------------------
-
-import csv
-
-ProbeName = []
-ProbeCode = []
-
-with open(codebookfolder, newline="") as codebook:
-
-    csv_reader = csv.reader(codebook, delimiter=",", quotechar="|")
-    csv_dic = csv.DictReader(codebook)
-
-    for row in csv_reader:
-
-        if row[0] != "Blank-01":
-
-            ProbeName.append(row[0])
-            ProbeCode.append(row[2:17])
-
-        else:
-            break
         
 # Test to generate the fiducial coordinates
 # -----------------------------------------
 
-from Fiducial import Fiducial
+from Detections import Fiducial, Readout
 
 fiducial = Fiducial(config_parameters)
 fiducial.define_coordinates()
-print(fiducial.fid_coordinates)
+
+
+readout = Readout(config_parameters)
+readout.read_codebook()
+readout.define_coordinates()
+
+# Test to generate and save the movies
+# ------------------------------------
+
+from Simulate_movie import SimulateData
+
+simu = SimulateData(config_parameters, fiducial.fid_coordinates, readout.probe_coordinates)
+simu.create_fiducial_image(3, 500)
+
+plt.imshow(simu.fiducial_im)
+
