@@ -1,0 +1,21 @@
+mainfolder: /home/jb/Workspace/Python/merFISH_simulation
+destinationfolder : /home/jb/Workspace/Python/merFISH_simulation/Simulated_data
+
+image:
+  width : 256
+  height : 256
+
+acquisition_data:
+  ROI : 5
+  rounds : 16
+  
+fiducial:
+  number : 5
+  channel : 2
+  
+readout_probe:
+  number : 100   
+  channels : 1
+
+codebook:
+  codebookfolder: /home/jb/Workspace/Python/merFISH_simulation/test_data/test_codebook.csv
