@@ -12,14 +12,14 @@ acquisition_data:
   rounds : 16
   
 fiducial:
-  number : 5
+  number : 10
   channel : 2
   background_intensity : 1000
   
 readout_probe:
-  number : 100   
+  number : 500   
   channels : 1
-  background_intensity : 0
+  background_intensity : 1000
 
 codebook:
   codebookfolder: /home/jb/Workspace/Python/merFISH_simulation/test_data/test_codebook.csv

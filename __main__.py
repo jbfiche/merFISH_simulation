@@ -27,6 +27,8 @@ mainfolder = config_parameters["mainfolder"]
 
 os.chdir(mainfolder)
 print(os.getcwd())
+from Detections import Fiducial, Readout
+from Simulate_movie import SimulateData
 
 # Test whether the destination folder exist and create a folder with the data
 # and time of the day
@@ -40,11 +42,11 @@ simulationdir = os.path.join(
 )
 
 os.mkdir(simulationdir)
-        
+os.chdir(simulationdir)
+print(os.getcwd())
+
 # Test to generate the fiducial coordinates
 # -----------------------------------------
-
-from Detections import Fiducial, Readout
 
 fiducial = Fiducial(config_parameters)
 fiducial.define_coordinates()
@@ -57,10 +59,12 @@ readout.define_coordinates()
 # Test to generate and save the movies
 # ------------------------------------
 
-from Simulate_movie import SimulateData
+simu = SimulateData(
+    config_parameters,
+    fiducial.fid_coordinates,
+    readout.probe_coordinates,
+    readout.probe_code,
+    simulationdir
+)
 
-simu = SimulateData(config_parameters, fiducial.fid_coordinates, readout.probe_coordinates)
-simu.create_fiducial_image(3, 500)
-
-plt.imshow(simu.fiducial_im)
-
+simu.simulate_data()
