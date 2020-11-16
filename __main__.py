@@ -42,15 +42,12 @@ simulationdir = os.path.join(
 )
 
 os.mkdir(simulationdir)
-os.chdir(simulationdir)
-print(os.getcwd())
 
 # Test to generate the fiducial coordinates
 # -----------------------------------------
 
 fiducial = Fiducial(config_parameters)
 fiducial.define_coordinates()
-
 
 readout = Readout(config_parameters)
 readout.read_codebook()
@@ -59,12 +56,14 @@ readout.define_coordinates()
 # Test to generate and save the movies
 # ------------------------------------
 
+os.chdir(simulationdir)
+print(os.getcwd())
+
 simu = SimulateData(
     config_parameters,
     fiducial.fid_coordinates,
     readout.probe_coordinates,
     readout.probe_code,
-    simulationdir
 )
 
 simu.simulate_data()

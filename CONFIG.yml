@@ -1,5 +1,8 @@
-mainfolder: /home/jb/Workspace/Python/merFISH_simulation
-destinationfolder : /home/jb/Workspace/Python/merFISH_simulation/Simulated_data
+mainfolder: /home/jb/Workspace/Python/HiM_merFISH_analysis/merFISH_simulation
+destinationfolder : /home/jb/Workspace/Python/HiM_merFISH_analysis/merFISH_simulation/Simulated_images
+
+codebook:
+  codebookfolder: /home/jb/Workspace/Python/HiM_merFISH_analysis/merFISH_simulation/Simulated_data_for_MERlin/merfish-parameters/codebooks/test_codebook.csv
 
 image:
   width : 256
@@ -8,18 +11,19 @@ image:
   pixel_size_nm : 97
 
 acquisition_data:
-  nROI : 5
+  nROI : 1
   rounds : 16
   
 fiducial:
-  number : 10
+  number : 25
   channel : 2
-  background_intensity : 1000
+  background_intensity : 0
+  average_drift_px : 1
+  average_beads_intensity : 2000
   
 readout_probe:
-  number : 500   
+  number_detections_per_image : 500   
+  number_selected_loci : 2
   channels : 1
   background_intensity : 1000
-
-codebook:
-  codebookfolder: /home/jb/Workspace/Python/merFISH_simulation/test_data/test_codebook.csv
+  average_readout_intensity : 700

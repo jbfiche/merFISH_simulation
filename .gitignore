@@ -124,3 +124,15 @@ dmypy.json
 .pyre/
 
 Simulated_data/
+
+test_data/analysis/
+
+test_data/data/
+
+test_data/merfish-parameters/
+
+MERlin_test_data/
+
+Simulated_data_for_MERlin/
+
+Simulated_images/

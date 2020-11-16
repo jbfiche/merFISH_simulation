@@ -8,23 +8,21 @@ Created on Wed Sep 16 11:26:32 2020
 
 import numpy
 import tifffile
-import os
-import matplotlib.pyplot as plt
 
 
 class SimulateData:
-    def __init__(self, param, fid_coordinates, probe_coordinates, probe_code, simulationdir):
-
-        self.destfolder = simulationdir
+    def __init__(self, param, fid_coordinates, probe_coordinates, probe_code):
 
         self.nROI = param["acquisition_data"]["nROI"]
-        self.nprobe = param["readout_probe"]["number"]
+        self.nprobe = param["readout_probe"]["number_detections_per_image"]
         self.width = param["image"]["width"]
         self.height = param["image"]["height"]
-        self.destfolder = param["destinationfolder"]
         self.bkg_fiducial = param["fiducial"]["background_intensity"]
         self.bkg_readout = param["readout_probe"]["background_intensity"]
         self.nround = param["acquisition_data"]["rounds"]
+        self.drift = param["fiducial"]["average_drift_px"]
+        self.Ifid = param["fiducial"]["average_beads_intensity"]
+        self.Ireadout = param["readout_probe"]["average_readout_intensity"]
 
         psf_FWHM = param["image"]["psf_FWHM_nm"]
         pixel_size = param["image"]["pixel_size_nm"]
@@ -45,6 +43,21 @@ class SimulateData:
         )
 
     def create_single_bkg_image(self, bkg_intensity):
+        """
+        Simple code to create a typical background image for a sCMOS camera. 
+        This code was adapted from codes found on the Zhuang lab github.
+
+        Parameters
+        ----------
+        bkg_intensity : int
+        Define the background intensity for the image (based on a Poisson law
+        for the shot noise)
+
+        Returns
+        -------
+        None.
+
+        """
 
         image = self.gain * numpy.random.poisson(
             lam=bkg_intensity, size=(self.width, self.height)
@@ -60,7 +73,25 @@ class SimulateData:
 
         self.bkg_im = image
 
-    def create_fiducial_image(self, roi, I):
+    def create_fiducial_image(self, roi, I0, drift):
+        """
+        For a specific ROI, the code is adding on a background image the
+        localizations of the fluorescent beads, according to the positions
+        calculated in the class Fiducial.
+
+
+        Parameters
+        ----------
+        roi : int - indicate to which roi this image will be assigned.
+        I0 : int - average intensity of the fluorescent beads.
+        drift : int - average number of pixels for the drift. It is used as
+        the standard deviation of a normal law centered on zero.
+
+        Returns
+        -------
+        None.
+
+        """
 
         self.create_single_bkg_image(self.bkg_fiducial)
         loc = numpy.zeros((self.width, self.height))
@@ -68,11 +99,13 @@ class SimulateData:
         for row in self.fid_coordinates:
             if row[0] == roi:
 
-                x = row[1]
-                y = row[2]
-                
+                x = row[1] + drift[0, 0]
+                y = row[2] + drift[0, 1]
+
                 x0 = int(numpy.round(x))
                 y0 = int(numpy.round(y))
+
+                I = numpy.random.poisson(I0, 1)
 
                 for i in range(-7, 7):
                     for j in range(-7, 7):
@@ -84,7 +117,25 @@ class SimulateData:
 
         self.fiducial_im = loc + self.bkg_im
 
-    def create_readout_image(self, roi, n, I):
+    def create_readout_image(self, roi, n, I0, drift):
+        """
+        For a specific ROI, the code is adding on a background image the
+        localizations of the readout probes, according to the positions
+        calculated in the class Readout.
+
+        Parameters
+        ----------
+        roi : int - indicate to which roi this image will be assigned.
+        n : int - indicate to which injection round the image will be assigned.
+        I0 : int - average intensity of the fluorescent beads.
+        drift : int - average number of pixels for the drift. It is used as
+        the standard deviation of a normal law centered on zero.
+
+        Returns
+        -------
+        None.
+
+        """
 
         self.create_single_bkg_image(self.bkg_readout)
         loc = numpy.zeros((self.width, self.height))
@@ -92,12 +143,14 @@ class SimulateData:
         for row in self.probe_coordinates:
             if row[0] == roi:
 
-                x = row[1]
-                y = row[2]
+                x = row[1] + drift[0, 0]
+                y = row[2] + drift[0, 1]
                 loci = int(row[3])
-                
+
                 x0 = int(numpy.round(x))
                 y0 = int(numpy.round(y))
+
+                I = numpy.random.poisson(I0, 1)
 
                 if self.probe_code[loci, n] == 1:
 
@@ -114,17 +167,31 @@ class SimulateData:
         self.readout_im = loc + self.bkg_im
 
     def simulate_data(self):
+        """
+        Calculate and save the simulated data, according to the number of roi
+        and rounds for the experiment.
+
+        Returns
+        -------
+        None.
+
+        """
+
+        drift = numpy.zeros((1, 2))
 
         for roi in range(self.nROI):
+
             for n in range(self.nround):
-                
-                print(roi,n)
+
+                print(roi, n)
 
                 name = "Test_" + str(roi) + "_" + str(n) + ".tif"
                 with tifffile.TiffWriter(name) as tf:
-                    
-                    self.create_readout_image(roi, n, 500)
+
+                    self.create_readout_image(roi, n, self.Ireadout, drift)
                     tf.save(numpy.round(self.readout_im).astype(numpy.uint16))
 
-                    self.create_fiducial_image(roi, 1000)
+                    self.create_fiducial_image(roi, self.Ifid, drift)
                     tf.save(numpy.round(self.fiducial_im).astype(numpy.uint16))
+
+                    drift = drift + numpy.random.normal(0, self.drift, (1, 2))
