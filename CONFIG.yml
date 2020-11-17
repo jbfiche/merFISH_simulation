@@ -8,22 +8,22 @@ image:
   width : 256
   height : 256
   psf_FWHM_nm : 250
-  pixel_size_nm : 97
+  pixel_size_nm : 96
 
 acquisition_data:
-  nROI : 1
+  nROI : 2
   rounds : 16
   
 fiducial:
-  number : 25
+  number : 15
   channel : 2
   background_intensity : 0
   average_drift_px : 1
-  average_beads_intensity : 2000
+  average_beads_intensity : 1000
   
 readout_probe:
-  number_detections_per_image : 500   
+  number_detections_per_image : 100
   number_selected_loci : 2
   channels : 1
-  background_intensity : 1000
-  average_readout_intensity : 700
+  background_intensity : 500
+  average_readout_intensity : 1000

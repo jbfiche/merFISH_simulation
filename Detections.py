@@ -131,7 +131,8 @@ class Readout:
                     roi,
                     x[0],
                     y[0],
-                    loci[0],
-                ]
+                    69]
+                    # loci[0],
+                # ]
 
         self.probe_coordinates = probe_coordinates

@@ -113,7 +113,7 @@ class SimulateData:
                         Y = y0 + j
                         if X > 0 and X < self.width and Y > 0 and Y < self.height:
                             d = (x - x0 - i) ** 2 + (y - y0 - j) ** 2
-                            loc[x0 + i, y0 + j] = I * numpy.exp(-d / (2 * self.s ** 2))
+                            loc[x0 + i, y0 + j] = loc[x0 + i, y0 + j] + I * numpy.exp(-d / (2 * self.s ** 2))
 
         self.fiducial_im = loc + self.bkg_im
 
@@ -160,7 +160,7 @@ class SimulateData:
                             Y = y0 + j
                             if X > 0 and X < self.width and Y > 0 and Y < self.height:
                                 d = (x - x0 - i) ** 2 + (y - y0 - j) ** 2
-                                loc[x0 + i, y0 + j] = I * numpy.exp(
+                                loc[x0 + i, y0 + j] = loc[x0 + i, y0 + j] + I * numpy.exp(
                                     -d / (2 * self.s ** 2)
                                 )
 
@@ -170,6 +170,11 @@ class SimulateData:
         """
         Calculate and save the simulated data, according to the number of roi
         and rounds for the experiment.
+        Note that the drift is defined as a numpy array containing two values, 
+        one for the x-drift, and the other for the y-drift. For the first round, 
+        the drift is automatically set to [0,0]. Then, for each round, a drift
+        is added according to a normal law with an average defined by the value
+        of "drift" in the CONFIG file. 
 
         Returns
         -------
@@ -177,9 +182,10 @@ class SimulateData:
 
         """
 
-        drift = numpy.zeros((1, 2))
-
         for roi in range(self.nROI):
+            
+            drift = numpy.zeros((1, 2))
+            drift_array = numpy.zeros((self.nround,2))
 
             for n in range(self.nround):
 
@@ -194,4 +200,8 @@ class SimulateData:
                     self.create_fiducial_image(roi, self.Ifid, drift)
                     tf.save(numpy.round(self.fiducial_im).astype(numpy.uint16))
 
+                    drift_array[n,:] = drift
                     drift = drift + numpy.random.normal(0, self.drift, (1, 2))
+                    
+            txt_name = "Drift_ROI_" + str(roi) + ".txt"
+            numpy.savetxt(txt_name,drift_array)
