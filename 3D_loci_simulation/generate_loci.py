@@ -59,11 +59,7 @@ class Loci:
 
         self.P_hybridization = param["detection"]["probe_hybridization_probability"]
 
-        # Define the average number of probes / images
-
-        self.N_detection = param["detection"]["number_detections_per_image"]
-
-    def define_coordinates(self):
+    def define_locus_coordinates(self, n_detections):
         """
         Calculate the 3D position of each detection. The calculation is performed in
         steps :
@@ -79,29 +75,30 @@ class Loci:
         Returns
         -------
         Loci : dictionary containing all the 3D positions of the hybridized probes
-
         """
 
         loci = dict()
-
-        for n in range(self.N_detection):
+        for n in range(n_detections):
 
             diploid = False
             x0 = np.random.uniform(0, self.Lx, 1)
             y0 = np.random.uniform(0, self.Ly, 1)
             z0 = np.random.uniform(self.dz, self.Lz - self.dz, 1)
+            p_hyb = np.random.uniform(self.P_hybridization[0], self.P_hybridization[1], 1)
 
             # Since the genome is diploid and similar loci have a very high probability (>0.9) to be paired together,
-            # the calculation is performed in two steps. The first one correspond to the locus itself. The second step
-            # to its copy.
+            # the calculation is performed in two steps. The first one corresponds to the locus itself. The second step
+            # to its copy. The position of the copy is usually very close to the initial locus.
 
             for n_locus in range(2):
 
                 if n_locus == 1:
-                    p = np.random.uniform(0, 1, 1)
 
-                    # If the probability is lower than P_paired, then the position of the second locus is calculated
-                    if p < self.P_paired:
+                    # Bernouilli process to decide whether the locus is diploid. If yes, the position of the paired
+                    # locus is recalculated by estimating the distance between the two loci (chi-square distribution).
+                    # The paired locus is accepted only if it is localized within the border of the image.
+
+                    if np.random.binomial(1, self.P_paired) == 1:
 
                         r_diploid = np.random.chisquare(1) * self.D_diploid + self.D_diploid
                         theta = np.random.uniform(0, np.pi, 1)
@@ -136,8 +133,7 @@ class Loci:
 
                 for n_probe in range(self.N_probes):
 
-                    p = np.random.uniform(0, 1, 1)
-                    if p < self.P_hybridization:
+                    if np.random.binomial(1, p_hyb) == 1:
                         locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
                         locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
                         locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
@@ -148,3 +144,31 @@ class Loci:
             loci[key] = locus_coordinates
 
         return loci
+
+    def define_false_positive_coordinates(self, n_detections):
+        """
+        Calculate the 3D position of each false positive detection. The calculation is performed in
+        the same way than for the locus, though this time, only a single probe is used.
+
+        Returns
+        -------
+        FP : dictionary containing all the 3D positions of the single probes
+        """
+
+        fp = dict()
+
+        for n in range(n_detections):
+
+            x0 = np.random.uniform(0, self.Lx, 1)
+            y0 = np.random.uniform(0, self.Ly, 1)
+            z0 = np.random.uniform(self.dz, self.Lz - self.dz, 1)
+
+            fp_coordinates = np.zeros((1, 3))
+            fp_coordinates[0, 0] = x0
+            fp_coordinates[0, 1] = y0
+            fp_coordinates[0, 2] = z0
+
+            key = "FP_" + str(n)
+            fp[key] = fp_coordinates
+
+        return fp

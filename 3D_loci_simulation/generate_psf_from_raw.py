@@ -48,7 +48,7 @@ for folder in psf_folder:
         # Recenter the psf as a 101x101x101 pixel and save the numpy file for the simulations
         # -----------------------------------------------------------------------------------
 
-        psf_new = psf[Z_max-50:Z_max+50, X_max-50:X_max+50, Y_max-50:Y_max+50]
+        psf_new = psf[Z_max-65:Z_max+65, X_max-50:X_max+50, Y_max-50:Y_max+50]
 
         psf_file_name = destination_folder + os.path.splitext(file)[0]
         np.save(psf_file_name, psf_new)
