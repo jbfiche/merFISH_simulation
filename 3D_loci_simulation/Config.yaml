@@ -1,52 +1,40 @@
 mainfolder: /home/jb/Workspace/Python/merFISH_simulation/merFISH_simulation/3D_loci_simulation
 destinationfolder : /home/jb/Desktop/Data_single_loci/Simulations
-psffolder : /home/jb/Desktop/PSF examples
+psffolder : /home/jb/Desktop/Data_single_loci/psf_analyze_npy
 
 image:
   width : 256 # in pix
   height : 256 # in pix
   pixel_size_nm : 100
-  
   number_z_planes : 30
   z_spacing_nm : 500
-  
-  background_intensity : 400
-  
-  intensity_single_probe : 20
-  
+  background_intensity : 300
+  intensity_single_probe : 50
 
 acquisition_data:
   nROI : 2
-  
 
 psf :
-  psf_width : 100
+  psf_width : 100 # in pixel - size of the image used for the simulation
   psf_height : 100
-  psf_planes : 100
-  z_spacing_psf_nm : 100 # Spacing between successive planes for the psf file
-
+  psf_planes : 100 # number of planes
+  z_spacing_psf_nm : 100 # Spacing in nm between successive planes for the psf file
 
 detection:
   number_detections_per_image : 100
-  
   width_um : 25
   height_um : 25
   depth_um : 15
   minimum_depth_um : 1
-  
   loci_size_kb : 3
   number_probes : 45
-  
   beta_min : 0.3
   beta_max : 0.55
   gamma_min : 30
   gamma_max : 100
-  
   diploid_pair_probability : 0.9
-  average_paired_distance_nm : 50
-  
+  average_paired_distance_nm : 50 # in nm
   probe_hybridization_probability : 0.5
-  
   number_selected_loci : 2
   channels : 1
   background_intensity : 500
