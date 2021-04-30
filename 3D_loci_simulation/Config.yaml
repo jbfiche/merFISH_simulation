@@ -1,31 +1,36 @@
 mainfolder: /home/jb/Workspace/Python/merFISH_simulation/merFISH_simulation/3D_loci_simulation
-destinationfolder : /home/jb/Desktop/Data_single_loci/Simulations
-psffolder : /home/jb/Desktop/Data_single_loci/psf_analyze_npy
+destinationfolder : /home/jb/Workspace/Python/merFISH_simulation/Simulated_data_3D
+psffolder : /home/jb/Workspace/Python/merFISH_simulation/merFISH_simulation/3D_loci_simulation/psf_analyze_npy
 
 image:
   width : 256 # in pix
   height : 256 # in pix
   pixel_size_nm : 100
-  number_z_planes : 30
-  z_spacing_nm : 500
-  background_intensity : 300
-  intensity_single_probe : 50
+  number_z_planes : 150
+  z_spacing_nm : 100
+  background_intensity : [15,70]
+  intensity_single_probe : 25
 
 acquisition_data:
   nROI : 2
 
+ground_truth :
+  simulated_psf_width : 250 # in nm
+  simulated_psf_height : 500 # in nm
+
 psf :
   psf_width : 100 # in pixel - size of the image used for the simulation
   psf_height : 100
-  psf_planes : 100 # number of planes
+  psf_planes : 130 # number of planes
   z_spacing_psf_nm : 100 # Spacing in nm between successive planes for the psf file
 
 detection:
-  number_detections_per_image : 100
-  width_um : 25
+  number_detections_per_image : 100 # average number of detections per field of view
+  number_false_positive_data : 5000 # average number of false positive (single probe)
+  width_um : 25 # size of the fov where to define the initial position of each detection
   height_um : 25
-  depth_um : 15
-  minimum_depth_um : 1
+  depth_um : 15 # this value should match the final depth of the stack
+  minimum_depth_um : 1 # to avoid having detections too close to the first or last frames
   loci_size_kb : 3
   number_probes : 45
   beta_min : 0.3
@@ -33,9 +38,5 @@ detection:
   gamma_min : 30
   gamma_max : 100
   diploid_pair_probability : 0.9
-  average_paired_distance_nm : 50 # in nm
-  probe_hybridization_probability : 0.5
-  number_selected_loci : 2
-  channels : 1
-  background_intensity : 500
-  average_readout_intensity : 1000
+  average_paired_distance_nm : 100 # in nm
+  probe_hybridization_probability : [0.2, 0.7] # probability for a single probe to hybridize to a loci
