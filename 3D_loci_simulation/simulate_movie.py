@@ -212,20 +212,35 @@ class SimulateData:
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
 
-            # calculate the mean position
-            x0 = np.median(coordinates[:, 0]) * 1000/self.pixel_size
-            y0 = np.median(coordinates[:, 1]) * 1000/self.pixel_size
-            z0 = np.median(coordinates[:, 2]) * 1000/self.pixel_size
+            # remove all the non-zero values
+            idx = np.argwhere(coordinates)
+            coordinates = coordinates[np.unique(idx[:, 0]), :]
 
-            # simulate the psf as an ellipsoid
-            for x, y, z in self.ellipsoid_coordinates:
-                self.gt_stack[int(x+x0), int(y+y0), int(z+z0)] = n
+            # check there is a minimum of 5 probes
+            if coordinates.shape[0] > 5:
+
+                # calculate the mean position
+                x0 = np.median(coordinates[:, 0]) * 1000/self.pixel_size
+                y0 = np.median(coordinates[:, 1]) * 1000/self.pixel_size
+                z0 = np.median(coordinates[:, 2]) * 1000/self.pixel_size
+
+                # simulate the psf as an ellipsoid
+                for x, y, z in self.ellipsoid_coordinates:
+                    self.gt_stack[int(x+x0), int(y+y0), int(z+z0)] = n
 
         name = "Test_GT.tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
                 im = self.gt_stack[:, :, n]
+                tf.save(np.round(im).astype(np.uint16))
+
+        name = "Test_mask.tif"
+        with tifffile.TiffWriter(name) as tf:
+
+            for n in range(self.Lz):
+                im = self.gt_stack[:, :, n]
+                im[im>0] = 1
                 tf.save(np.round(im).astype(np.uint16))
 
     def create_ellipsoid_template(self):

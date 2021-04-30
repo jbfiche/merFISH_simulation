@@ -25,7 +25,7 @@ psf :
   z_spacing_psf_nm : 100 # Spacing in nm between successive planes for the psf file
 
 detection:
-  number_detections_per_image : 100 # average number of detections per field of view
+  number_detections_per_image : 50 # average number of detections per field of view
   number_false_positive_data : 5000 # average number of false positive (single probe)
   width_um : 25 # size of the fov where to define the initial position of each detection
   height_um : 25
