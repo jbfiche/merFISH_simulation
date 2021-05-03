@@ -40,21 +40,26 @@ for folder in psf_folder:
         psf = (im - I_min)/I_max.astype(float)
 
         # Calculate the coordinates of the brightest pixel in order to define the
-        # center of the psf.
-        # ------------------
+        # center of the psf. Since the psf is not always symmetric, the center of the psf is defined as the position of
+        # the brightest pixel on the MIP images (maximum projection on a specific plane).
+        # -------------------------------------------------------------------------------
 
-        Z_max, X_max, Y_max = np.unravel_index(np.argmax(im), im.shape)
+        mip_XY = np.max(im, axis=0)
+        X_max, Y_max = np.unravel_index(np.argmax(mip_XY), mip_XY.shape)
+
+        mip_XZ = np.max(im, axis=2)
+        Z_max, X_max = np.unravel_index(np.argmax(mip_XZ), mip_XZ.shape)
 
         # Recenter the psf as a 101x101x101 pixel and save the numpy file for the simulations
         # -----------------------------------------------------------------------------------
 
-        psf_new = psf[Z_max-65:Z_max+65, X_max-50:X_max+50, Y_max-50:Y_max+50]
+        psf_new = psf[Z_max-65:Z_max+66, X_max-50:X_max+51, Y_max-50:Y_max+51]
 
         psf_file_name = destination_folder + os.path.splitext(file)[0]
         np.save(psf_file_name, psf_new)
 
-        # Calculate the MIP for each psf and save it
-        # ------------------------------------------
+        # Recalculate the MIP for each centered psf and save it
+        # -----------------------------------------------------
 
         mip_XY = np.max(psf_new, axis=0)
         mip_XZ = np.max(psf_new, axis=2)
