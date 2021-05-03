@@ -12,24 +12,21 @@ image:
   intensity_single_probe : 25
 
 acquisition_data:
-  nROI : 2
+  nROI : 100
 
 ground_truth :
-  simulated_psf_width : 250 # in nm
+  simulated_psf_width : 350 # in nm
   simulated_psf_height : 500 # in nm
 
 psf :
-  psf_width : 100 # in pixel - size of the image used for the simulation
-  psf_height : 100
-  psf_planes : 130 # number of planes
+  psf_width : 101 # in pixel - size of the image used for the simulation
+  psf_height : 101
+  psf_planes : 131 # number of planes
   z_spacing_psf_nm : 100 # Spacing in nm between successive planes for the psf file
 
 detection:
   number_detections_per_image : 50 # average number of detections per field of view
-  number_false_positive_data : 5000 # average number of false positive (single probe)
-  width_um : 25 # size of the fov where to define the initial position of each detection
-  height_um : 25
-  depth_um : 15 # this value should match the final depth of the stack
+  number_false_positive_data : 2500 # average number of false positive (single probe)
   minimum_depth_um : 1 # to avoid having detections too close to the first or last frames
   loci_size_kb : 3
   number_probes : 45
@@ -38,5 +35,5 @@ detection:
   gamma_min : 30
   gamma_max : 100
   diploid_pair_probability : 0.9
-  average_paired_distance_nm : 100 # in nm
+  average_paired_distance_nm : 70 # in nm
   probe_hybridization_probability : [0.2, 0.7] # probability for a single probe to hybridize to a loci
