@@ -24,14 +24,18 @@ class Loci:
         None.
 
         """
+        # size of th the field of view where the localizations can be simulated (in µm). The parameters are calculated
+        # according to the shape of the simulated stack of images and the pixel size.
 
-        self.Lx = param["detection"]["width_um"]
-        self.Ly = param["detection"]["height_um"]
-        self.Lz = param["detection"]["depth_um"]
+        self.Lx = param["image"]["width"] * param["image"]["pixel_size_nm"] / 1000
+        self.Ly = param["image"]["height"] * param["image"]["pixel_size_nm"] / 1000
+        self.Lz = param["image"]["number_z_planes"] * param["image"]["z_spacing_nm"] / 1000
         self.dz = param["detection"]["minimum_depth_um"]
 
         self.N_probes = param["detection"]["number_probes"]
         self.D_probes = param["detection"]["loci_size_kb"]
+
+        self.Intensity = param["image"]["intensity_single_probe"]
 
         # The 3D physical distance is related to the genomic distance (in kb)
         # following a power law (see Cattoni et al. 2017. Nat. Communications). In
@@ -127,7 +131,7 @@ class Loci:
                 dz = r * np.cos(theta)
 
                 if not diploid:
-                    locus_coordinates = np.zeros((self.N_probes, 3))
+                    locus_coordinates = np.zeros((self.N_probes, 4))
                 else:
                     locus_coordinates_0 = locus_coordinates
 
@@ -137,6 +141,7 @@ class Loci:
                         locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
                         locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
                         locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
+                        locus_coordinates[n_probe, 3] = np.random.poisson(self.Intensity)
 
             if diploid:
                 locus_coordinates = np.concatenate((locus_coordinates_0, locus_coordinates))
@@ -163,10 +168,11 @@ class Loci:
             y0 = np.random.uniform(0, self.Ly, 1)
             z0 = np.random.uniform(self.dz, self.Lz - self.dz, 1)
 
-            fp_coordinates = np.zeros((1, 3))
+            fp_coordinates = np.zeros((1, 4))
             fp_coordinates[0, 0] = x0
             fp_coordinates[0, 1] = y0
             fp_coordinates[0, 2] = z0
+            fp_coordinates[0, 3] = np.random.poisson(self.Intensity)
 
             key = "FP_" + str(n)
             fp[key] = fp_coordinates

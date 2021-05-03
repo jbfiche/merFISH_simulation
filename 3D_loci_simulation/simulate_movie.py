@@ -17,7 +17,6 @@ class SimulateData:
     def __init__(self, param, n_locus, loci_coordinates, n_fp, fp_coordinates, psf_files):
 
         self.nROI = param["acquisition_data"]["nROI"]
-        self.Intensity = param["image"]["intensity_single_probe"]
         self.n_locus = n_locus
         self.n_fp = n_fp
 
@@ -38,10 +37,12 @@ class SimulateData:
         self.dz_planes_psf = param["psf"]["z_spacing_psf_nm"]
         self.r = self.dz_planes / self.dz_planes_psf  # ratio of plane interspace between the simulated stack and the psf
 
-        self.a = param["ground_truth"]["simulated_psf_width"] # in nm
+        self.a = param["ground_truth"]["simulated_psf_width"]  # in nm
         self.c = param["ground_truth"]["simulated_psf_height"]  # in nm
 
         self.bkg = param["image"]["background_intensity"]
+        self.bkg_mean = 0
+        self.bkg_std = 0
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
@@ -120,6 +121,7 @@ class SimulateData:
             x = coordinates[n_probe, 0]
             y = coordinates[n_probe, 1]
             z = coordinates[n_probe, 2]
+            I = coordinates[n_probe, 3]
 
             if x != 0 and y != 0 and z != 0:
 
@@ -158,7 +160,7 @@ class SimulateData:
                     if 0 <= z <= self.Lz - 1 and 0 <= z_psf <= self.Lz_psf - 1:
 
                         im = self.stack[:, :, int(z)]
-                        im_psf = psf[int(z_psf)] * np.random.poisson(self.Intensity)
+                        im_psf = psf[int(z_psf)] * I
 
                         x_roi_min = int(x0 - self.Lx_psf / 2)
                         x_roi_max = int(x0 + self.Lx_psf / 2)
@@ -171,22 +173,26 @@ class SimulateData:
                             self.stack[:, :, int(z)] = im
                         except ValueError:
                             print(x_roi_min, x_roi_max, y_roi_min, y_roi_max)
+                            print(ValueError)
 
-    def simulate_raw_stack(self):
+    def simulate_raw_stack(self, nROI):
 
-        for n in tqdm(range(self.n_locus)):
+        print('simulate {} false positive :'.format(self.n_fp))
+        for n in range(self.n_fp):
+            key = "FP_" + str(n)
+            coordinates = self.fp_coordinates[key]
+            self.add_locus_image(coordinates)
+
+        self.bkg_mean = np.mean(self.stack)
+        self.bkg_std = np.std(self.stack)
+
+        print('simulate {} true positive :'.format(self.n_locus))
+        for n in range(self.n_locus):
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
             self.add_locus_image(coordinates)
 
-        # print('')
-        # print('Simulate false positive :')
-        # for n in tqdm(range(self.n_fp)):
-        #     key = "FP_" + str(n)
-        #     coordinates = self.fp_coordinates[key]
-        #     self.add_locus_image(coordinates)
-
-        name = "Test_.tif"
+        name = "ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
@@ -203,12 +209,12 @@ class SimulateData:
                 # plt.imshow(im_psf)
                 # plt.show()
 
-    def simulate_ground_truth(self):
+    def simulate_ground_truth(self, nROI):
 
         print('')
         print('Simulate ground truth :')
 
-        for n in tqdm(range(self.n_locus)):
+        for n in range(self.n_locus):
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
 
@@ -216,31 +222,34 @@ class SimulateData:
             idx = np.argwhere(coordinates)
             coordinates = coordinates[np.unique(idx[:, 0]), :]
 
-            # check there is a minimum of 5 probes
-            if coordinates.shape[0] > 5:
+            int_locus = sum(coordinates[:, 3])
+
+            # check there is enough signal to allow a proper detection of the locus
+            if int_locus/self.bkg_std > 5:
 
                 # calculate the mean position
-                x0 = np.median(coordinates[:, 0]) * 1000/self.pixel_size
-                y0 = np.median(coordinates[:, 1]) * 1000/self.pixel_size
-                z0 = np.median(coordinates[:, 2]) * 1000/self.pixel_size
+                x0 = np.average(coordinates[:, 0], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+                y0 = np.average(coordinates[:, 1], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+                z0 = np.average(coordinates[:, 2], weights=coordinates[:, 3]) * 1000 / self.dz_planes
 
                 # simulate the psf as an ellipsoid
                 for x, y, z in self.ellipsoid_coordinates:
-                    self.gt_stack[int(x+x0), int(y+y0), int(z+z0)] = n
+                    if x + x0 < self.Lx and y + y0 < self.Ly and z + z0 < self.Lz:
+                        self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n+1
 
-        name = "Test_GT.tif"
+        name = "GT_ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
                 im = self.gt_stack[:, :, n]
                 tf.save(np.round(im).astype(np.uint16))
 
-        name = "Test_mask.tif"
+        name = "mask_ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
                 im = self.gt_stack[:, :, n]
-                im[im>0] = 1
+                im[im > 0] = 1
                 tf.save(np.round(im).astype(np.uint16))
 
     def create_ellipsoid_template(self):
@@ -248,17 +257,16 @@ class SimulateData:
         # simulate the psf as an ellipsoid
         a = self.a / self.pixel_size
         c = self.c / self.pixel_size
-        r_a = np.arange(-np.ceil(a), np.ceil(a)+1, 1)
-        r_c = np.arange(-np.ceil(c), np.ceil(c)+1, 1)
+        r_a = np.arange(-np.ceil(a), np.ceil(a) + 1, 1)
+        r_c = np.arange(-np.ceil(c), np.ceil(c) + 1, 1)
         ellipsoid_coordinates = np.zeros((len(r_a) * len(r_a) * len(r_c), 3))
 
-        print(r_a)
         n = 0
         for x in r_a:
             for y in r_a:
                 for z in r_c:
 
-                    r = (x/a)**2 + (y/a)**2 + (z/c)**2
+                    r = (x / a) ** 2 + (y / a) ** 2 + (z / c) ** 2
                     if r <= 1:
                         ellipsoid_coordinates[n, 0] = x
                         ellipsoid_coordinates[n, 1] = y
@@ -266,4 +274,3 @@ class SimulateData:
                         n += 1
 
         self.ellipsoid_coordinates = ellipsoid_coordinates[0:n, :]
-
