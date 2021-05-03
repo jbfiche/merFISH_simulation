@@ -55,25 +55,28 @@ simulationdir = os.path.join(
 os.mkdir(simulationdir)
 os.chdir(simulationdir)
 
-# Generate the loci coordinates
-# -----------------------------
+nROI = config_parameters["acquisition_data"]["nROI"]
+for roi in range(nROI):
 
-_loci = Loci(config_parameters)
+    # Generate the loci coordinates
+    # -----------------------------
 
-N_detection = config_parameters["detection"]["number_detections_per_image"]
-n_locus = int(np.random.normal(N_detection, 20, 1))
-loci_coordinates = _loci.define_locus_coordinates(n_locus)
+    _loci = Loci(config_parameters)
 
-N_false_positive = config_parameters["detection"]["number_false_positive_data"]
-n_fp = int(np.random.normal(N_false_positive, 1000, 1))
-fp_coordinates = _loci.define_false_positive_coordinates(n_fp)
+    N_detection = config_parameters["detection"]["number_detections_per_image"]
+    n_locus = int(np.random.normal(N_detection, 20, 1))
+    loci_coordinates = _loci.define_locus_coordinates(n_locus)
 
-# Generate the images
-# -------------------
+    N_false_positive = config_parameters["detection"]["number_false_positive_data"]
+    n_fp = int(np.random.normal(N_false_positive, 1000, 1))
+    fp_coordinates = _loci.define_false_positive_coordinates(n_fp)
 
-_stack = SimulateData(config_parameters, n_locus, loci_coordinates, n_fp, fp_coordinates, psf_files)
-_stack.create_bkg_stack()
-_stack.simulate_raw_stack()
-_stack.create_ellipsoid_template()
-_stack.simulate_ground_truth()
+    # Generate the images
+    # -------------------
+
+    _stack = SimulateData(config_parameters, n_locus, loci_coordinates, n_fp, fp_coordinates, psf_files)
+    _stack.create_bkg_stack()
+    _stack.simulate_raw_stack(roi)
+    _stack.create_ellipsoid_template()
+    _stack.simulate_ground_truth(roi)
 
