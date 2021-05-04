@@ -9,13 +9,14 @@ image:
   number_z_planes : 150
   z_spacing_nm : 100
   background_intensity : [15,70]
+  background_step : [1,6]
   intensity_single_probe : 25
 
 acquisition_data:
-  nROI : 100
+  nROI : 10
 
 ground_truth :
-  simulated_psf_width : 350 # in nm
+  simulated_psf_width : 300 # in nm
   simulated_psf_height : 500 # in nm
 
 psf :
