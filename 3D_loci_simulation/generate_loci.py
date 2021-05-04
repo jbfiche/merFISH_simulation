@@ -58,6 +58,12 @@ class Loci:
         self.P_paired = param["detection"]["diploid_pair_probability"]
         self.D_diploid = param["detection"]["average_paired_distance_nm"]  # average distance separating two paired loci
 
+        # For the inhomogeneous background simulation
+
+        self.step_xy = param["image"]["pixel_size_nm"] / 1000
+        self.step_z = param["image"]["z_spacing_nm"] / 1000
+        self.bkg_step = param["image"]["background_step"]
+
         # Finally, the probability for each probe to hybridize is also defined as
         # P_hybridization
 
@@ -112,7 +118,9 @@ class Loci:
                         y0 = y0 + r_diploid * np.sin(theta) * np.sin(phi)
                         z0 = z0 + r_diploid * np.cos(theta)
 
-                        if 0 < x0 < self.Lx and 0 < y0 < self.Ly and self.dz < z0 < self.Lz - self.dz:
+                        # Check the coordinates of the paired locus are still in the border defined by the parameters
+
+                        if (0 < x0 < self.Lx) and (0 < y0 < self.Ly) and (self.dz < z0 < self.Lz - self.dz):
                             diploid = True
                         else:
                             break
@@ -130,51 +138,94 @@ class Loci:
                 dy = r * np.sin(theta) * np.sin(phi)
                 dz = r * np.cos(theta)
 
-                if not diploid:
-                    locus_coordinates = np.zeros((self.N_probes, 4))
+                # Check the locus is in the range of coordinates allowed
+
+                if (0 < x0+dx < self.Lx) and (0 < y0+dy < self.Ly) and (self.dz < z0+dz < self.Lz - self.dz):
+                    if not diploid:
+                        locus_coordinates = np.zeros((self.N_probes, 4))
+                    else:
+                        locus_coordinates_0 = locus_coordinates
+
+                    for n_probe in range(self.N_probes):
+
+                        if np.random.binomial(1, p_hyb) == 1:
+                            locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
+                            locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
+                            locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
+                            locus_coordinates[n_probe, 3] = np.random.poisson(self.Intensity)
                 else:
-                    locus_coordinates_0 = locus_coordinates
-
-                for n_probe in range(self.N_probes):
-
-                    if np.random.binomial(1, p_hyb) == 1:
-                        locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
-                        locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
-                        locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
-                        locus_coordinates[n_probe, 3] = np.random.poisson(self.Intensity)
+                    if diploid:
+                        diploid = False
 
             if diploid:
                 locus_coordinates = np.concatenate((locus_coordinates_0, locus_coordinates))
+
             key = "Locus_" + str(n)
             loci[key] = locus_coordinates
 
         return loci
 
-    def define_false_positive_coordinates(self, n_detections):
+    def define_homogeneous_bkg_coordinates(self, n_detections):
         """
         Calculate the 3D position of each false positive detection. The calculation is performed in
         the same way than for the locus, though this time, only a single probe is used.
 
         Returns
         -------
-        FP : dictionary containing all the 3D positions of the single probes
+        fp : array containing all the 3D positions of the single probes
         """
 
-        fp = dict()
+        fp_coordinates = np.zeros((n_detections, 4))
+
+        fp_coordinates[:, 0] = np.random.uniform(0, self.Lx, n_detections)
+        fp_coordinates[:, 1] = np.random.uniform(0, self.Ly, n_detections)
+        fp_coordinates[:, 2] = np.random.uniform(self.dz, self.Lz - self.dz, n_detections)
+        fp_coordinates[:, 3] = np.random.poisson(self.Intensity, n_detections)
+
+        return fp_coordinates
+
+    def define_inhomogeneous_bkg_coordinates(self, n_detections):
+
+        bkg_step = np.random.uniform(self.bkg_step[0], self.bkg_step[1], 1)
+        x0 = np.random.uniform(0, self.Lx)
+        y0 = np.random.uniform(0, self.Ly)
+        z0 = np.random.uniform(self.dz, self.Lz - self.dz)
+        step = np.random.normal(loc=0,
+                                scale=bkg_step,
+                                size=(3, n_detections))
+        intensity = np.random.poisson(self.Intensity, size=(n_detections+1,))
+        coordinates = np.zeros((4, n_detections+1))
+        coordinates[0, 0] = x0
+        coordinates[1, 0] = y0
+        coordinates[2, 0] = z0
+        coordinates[3, 0] = intensity[0]
 
         for n in range(n_detections):
+            coordinates[0, n+1] = step[0, n] * self.step_xy + coordinates[0, n]
+            coordinates[1, n+1] = step[1, n] * self.step_xy + coordinates[1, n]
+            coordinates[2, n+1] = step[2, n] * self.step_z + coordinates[2, n]
+            coordinates[3, n+1] = intensity[n+1]
 
-            x0 = np.random.uniform(0, self.Lx, 1)
-            y0 = np.random.uniform(0, self.Ly, 1)
-            z0 = np.random.uniform(self.dz, self.Lz - self.dz, 1)
+        x = coordinates[0, :]
+        idx = np.where(x < 0)
+        coordinates[0, idx] = coordinates[0, idx] + self.Lx
+        idx = np.where(x > self.Lx)
+        coordinates[0, idx] = coordinates[0, idx] - self.Lx
 
-            fp_coordinates = np.zeros((1, 4))
-            fp_coordinates[0, 0] = x0
-            fp_coordinates[0, 1] = y0
-            fp_coordinates[0, 2] = z0
-            fp_coordinates[0, 3] = np.random.poisson(self.Intensity)
+        y = coordinates[1, :]
+        idx = np.where(y < 0)
+        coordinates[1, idx] = coordinates[1, idx] + self.Ly
+        idx = np.where(y > self.Ly)
+        coordinates[1, idx] = coordinates[1, idx] - self.Ly
 
-            key = "FP_" + str(n)
-            fp[key] = fp_coordinates
+        z = coordinates[2, :]
+        idx = np.where(z < 0)
+        coordinates[2, idx] = coordinates[2, idx] + self.Lz
+        idx = np.where(z > self.Lz)
+        coordinates[2, idx] = coordinates[2, idx] - self.Lz
 
-        return fp
+        coordinates = np.transpose(coordinates)
+
+        return coordinates
+
+
