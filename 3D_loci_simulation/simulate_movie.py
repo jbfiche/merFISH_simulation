@@ -4,12 +4,24 @@
 Created on Tue Apr 27 11:50:41 2021
 
 @author: jb
+
+The class SimulateData is used to calculate a 3D stack of images for the HiM experiment. During initialization, the
+class is receiving the following input parameters :
+- param : parameters read from config.yaml
+- n_locus : the number of locus that will be simulated
+- loci-coordinates : (x,y,z,I) of each locus
+- n_fp : number of false positive probes
+- fp_coordinates : (x,y,z,I) of each emitter
+- psf_files : list of all the available 3D templates for the psf
+
 """
 
 import tifffile
 import numpy as np
-from tqdm import tqdm
-import matplotlib.pyplot as plt
+
+
+# from tqdm import tqdm
+# import matplotlib.pyplot as plt
 
 
 class SimulateData:
@@ -41,8 +53,6 @@ class SimulateData:
         self.c = param["ground_truth"]["simulated_psf_height"]  # in nm
 
         self.bkg = param["image"]["background_intensity"]
-        self.bkg_mean = 0
-        self.bkg_std = 0
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
@@ -58,11 +68,13 @@ class SimulateData:
         self.offset = np.round(self.offset)
 
         self.read_noise = np.random.normal(loc=0.5, scale=0.1, size=(self.Dx, self.Dy))
+        self.read_noise = np.absolute(self.read_noise)
 
         # Define the template for the simulated and the ground-truth data
         # ---------------------------------------------------------------
 
         self.stack = np.zeros((self.Dx, self.Dy, self.Dz))
+        self.bkg_stack = np.zeros((self.Dx, self.Dy, self.Dz))
         self.gt_stack = np.zeros((self.Lx, self.Ly, self.Lz))
 
     def create_single_bkg_image(self, bkg_intensity, dx, dy):
@@ -78,7 +90,6 @@ class SimulateData:
         Returns
         -------
         image : the simulated background image
-
         """
 
         image = self.gain * np.random.poisson(lam=bkg_intensity, size=(dx, dy))
@@ -91,12 +102,26 @@ class SimulateData:
         return image
 
     def create_bkg_stack(self):
+        """
+        Create a stack of background images. PSF will be added to the background later to create the simulation.
+        """
 
         bkg = np.random.randint(self.bkg[0], self.bkg[1])
         for n_plane in range(self.Dz):
             self.stack[:, :, n_plane] = self.create_single_bkg_image(bkg, self.Dx, self.Dy)
 
     def add_locus_image(self, coordinates):
+        """
+        From the stack of background images and the list of coordinates for the simulated detections, detections are
+        simulated by adding a 3D psf measured on a microscope (from a list of available psf previously normalized and
+        centered). For each coordinates, the psf is randomly selected from a set of available npy file. The psf is
+        randomly flip in the x/y direction, not along the z axis. From coordinates, the intensity associated to each
+        emitter was also defined.
+
+        Parameters
+        ----------
+        coordinates: numpy array containing the coordinates of each single proche (x, y, z) as well as its intensity
+        """
 
         # Pick the psf images
         # -------------------
@@ -174,24 +199,49 @@ class SimulateData:
                         except ValueError:
                             print(x_roi_min, x_roi_max, y_roi_min, y_roi_max)
                             print(ValueError)
+                            break
 
     def simulate_raw_stack(self, nROI):
+        """
+        Create the stack of simulated images. The simulation is performed in two steps:
+        - the false positive are first added to the background images
+        - the psf associated to each emitters is then added.
+        At the end of the process, the stack is savec as a tiff file.
 
-        print('simulate {} false positive :'.format(self.n_fp))
+        Parameters
+        ----------
+        nROI : the number of the ROI. Used to create a unique name for the output stack.
+
+        Return
+        ------
+        name : the name of the simulated movie
+        """
+
+        # Calculate the background images with the false positive events
+
+        # for n in range(self.n_fp):
+        #     key = "FP_" + str(n)
+        #     coordinates = self.fp_coordinates[key]
+        #     self.add_locus_image(coordinates)
+
+        print('simulate {} false positive'.format(self.n_fp))
+        coordinates = np.zeros((1, 4))
         for n in range(self.n_fp):
-            key = "FP_" + str(n)
-            coordinates = self.fp_coordinates[key]
+            coordinates[0, :] = self.fp_coordinates[n, :]
             self.add_locus_image(coordinates)
 
-        self.bkg_mean = np.mean(self.stack)
-        self.bkg_std = np.std(self.stack)
+        # Keep the background image for the ground truth calculation
+        self.bkg_stack = self.stack[int(self.Lx_psf / 2): int(self.Lx + self.Lx_psf / 2),
+                   int(self.Ly_psf / 2): int(self.Ly + self.Ly_psf / 2), :]
 
-        print('simulate {} true positive :'.format(self.n_locus))
+        # Simulate the loci
+        print('simulate {} true positive'.format(self.n_locus))
         for n in range(self.n_locus):
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
             self.add_locus_image(coordinates)
 
+        # Save the final stack of images
         name = "ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
@@ -209,33 +259,56 @@ class SimulateData:
                 # plt.imshow(im_psf)
                 # plt.show()
 
-    def simulate_ground_truth(self, nROI):
+        return name
 
-        print('')
-        print('Simulate ground truth :')
+    def simulate_ground_truth(self, nROI):
+        """
+        Simulate the ground truth images associated to the set of emitters coordinates. The process is performed in
+        three steps :
+        - from the set of coordinates associated to each locus, keep all the non-zero coordinates and calculate the
+        centroid position of the locus.
+        - calculate the sum of all the emitters intensity and check that the final intensity is above a specific
+         threshold with respect to the background
+        - each locus is then modeled as a single ellipsoid
+
+        At the end, two stack of images are saved :
+        - one where each locus is instanciated with a specific ID n>0 = Ground truth
+        - one where all pixel belonging to a locus are assigned the value 1 = MASK
+
+        Parameters
+        ----------
+        nROI : the number of the ROI. Used to create a unique name for the output stack.
+        """
+
+        print('Simulate ground truth')
 
         for n in range(self.n_locus):
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
 
-            # remove all the non-zero values
+            # Remove all the non-zero values
             idx = np.argwhere(coordinates)
             coordinates = coordinates[np.unique(idx[:, 0]), :]
 
+            # Calculate the centroid position of the locus
+            x0 = np.average(coordinates[:, 0], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+            y0 = np.average(coordinates[:, 1], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+            z0 = np.average(coordinates[:, 2], weights=coordinates[:, 3]) * 1000 / self.dz_planes
             int_locus = sum(coordinates[:, 3])
 
+            # Calculate the background around the locus position
+            xmin, xmax, ymin, ymax, zmin, zmax = self.calculate_roi_limits(x0, y0, z0)
+            bkg = self.bkg_stack[xmin:xmax, ymin:ymax, zmin:zmax]
+
             # check there is enough signal to allow a proper detection of the locus
-            if int_locus/self.bkg_std > 5:
+            if int_locus / np.std(bkg) > 3.5:
 
                 # calculate the mean position
-                x0 = np.average(coordinates[:, 0], weights=coordinates[:, 3]) * 1000 / self.pixel_size
-                y0 = np.average(coordinates[:, 1], weights=coordinates[:, 3]) * 1000 / self.pixel_size
-                z0 = np.average(coordinates[:, 2], weights=coordinates[:, 3]) * 1000 / self.dz_planes
 
                 # simulate the psf as an ellipsoid
                 for x, y, z in self.ellipsoid_coordinates:
                     if x + x0 < self.Lx and y + y0 < self.Ly and z + z0 < self.Lz:
-                        self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n+1
+                        self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n + 1
 
         name = "GT_ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
@@ -253,6 +326,10 @@ class SimulateData:
                 tf.save(np.round(im).astype(np.uint16))
 
     def create_ellipsoid_template(self):
+        """
+        Create a template ellipsoid for the ground truth. According to the parameters defined in the config file, the
+        method is calculating the coordinates of all the pixels of an ellipsoid centered around (0,0,0).
+        """
 
         # simulate the psf as an ellipsoid
         a = self.a / self.pixel_size
@@ -274,3 +351,38 @@ class SimulateData:
                         n += 1
 
         self.ellipsoid_coordinates = ellipsoid_coordinates[0:n, :]
+
+    def calculate_roi_limits(self, x, y, z):
+
+        dxy = 6
+        dz = 2
+
+        if x > dxy:
+            xmin = x - dxy
+        else:
+            xmin = 0
+        if x < self.Lx - 1 - dxy:
+            xmax = x + dxy
+        else:
+            xmax = self.Lx - 1
+
+        if y > dxy:
+            ymin = y - dxy
+        else:
+            ymin = 0
+        if y < self.Ly - 1 - dxy:
+            ymax = y + dxy
+        else:
+            ymax = self.Ly - 1
+
+        if z > dz:
+            zmin = z - dz
+        else:
+            zmin = 0
+        if z < self.Lz - 1 - dz:
+            zmax = z + dz
+        else:
+            zmax = self.Lz - 1
+
+        return np.array([xmin, xmax, ymin, ymax, zmin, zmax]).astype('int16')
+
