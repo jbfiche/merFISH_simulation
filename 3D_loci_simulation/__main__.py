@@ -78,7 +78,10 @@ for roi in range(nROI):
     loci_coordinates = _loci.define_locus_coordinates(n_locus)
 
     N_false_positive = config_parameters["detection"]["number_false_positive_data"]
-    n_fp = int(np.random.normal(N_false_positive, 1000, 1))
+    n_fp = 0
+    while n_fp == 0:
+        n_fp = int(np.random.normal(N_false_positive, 1000, 1))
+
     if np.random.binomial(1, 0.8) == 0:
         print('Homogeneous')
         fp_coordinates = _loci.define_homogeneous_bkg_coordinates(n_fp)
