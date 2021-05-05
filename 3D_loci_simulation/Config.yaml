@@ -16,7 +16,7 @@ acquisition_data:
   nROI : 10
 
 ground_truth :
-  simulated_psf_width : 300 # in nm
+  simulated_psf_width : 400 # in nm
   simulated_psf_height : 500 # in nm
 
 psf :
