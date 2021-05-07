@@ -38,11 +38,11 @@ lbl_cmap = random_label_cmap()
 for n_training in range(2):
 
     if n_training == 0:
-        data_dir = '/home/fiche/Data_single_loci/Annotated_data/data_simulation3D_20210605/deconvolved/'
-        model_name = 'stardist_20210506_simu_deconvolved_2'    
+        data_dir = '/home/fiche/Data_single_loci/Annotated_data/data_simulation3D_20210705/deconvolved/'
+        model_name = 'stardist_20210507_simu_deconvolved'
     else:
-        data_dir = '/home/fiche/Data_single_loci/Annotated_data/data_simulation3D_20210605/raw/'
-        model_name = 'stardist_20210506_simu_raw_2'
+        data_dir = '/home/fiche/Data_single_loci/Annotated_data/data_simulation3D_20210705/raw/'
+        model_name = 'stardist_20210507_simu_raw'
         
     os.chdir(data_dir)
     
