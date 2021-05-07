@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import time
+import shutil
 
 from glob import glob
 from tqdm import tqdm
@@ -30,80 +31,121 @@ lbl_cmap = random_label_cmap()
 # Define the folders where the trained model and the test data are saved
 # ----------------------------------------------------------------------
 
-model_dir = '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models/'
-test_dir = '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved/'
-model_name = 'stardist_20210506_simu_deconvolved'
+model_dir_all = ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models']
+
+model_name_all = ['stardist_20210506_simu_deconvolved',
+              'stardist_20210506_simu_deconvolved_2',
+              'stardist_20210506_simu_raw',
+              'stardist_20210506_simu_raw_2']
+
+test_dir_all = [['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved/',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved_simulated'],
+            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved/',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved_simulated'],
+            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw_simulated'],
+            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw',
+             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw_simulated']]
 
 repeat = 10
 
-# Load the model
-# --------------
+for n_model in range(len(model_dir_all)):
 
-model = StarDist3D(None, name=model_name, basedir=model_dir)
-limit_gpu_memory(None, allow_growth=True)
+    model_dir = model_dir_all[n_model]
+    model_name = model_name_all[n_model]
+    print(model_name)
 
-# Look for the data. Depending whether the images are large (>1000x1000pix) or 
-# small, the procedure for the image reconstruction is not the same. 
-# ------------------------------------------------------------------
+    for n_test in range(len(test_dir_all[n_model])):
 
-os.chdir(test_dir)
-X = sorted(glob('*_raw.tif'))
-axis_norm = (0,1,2)
+        # For the selected model, define the folder where the test data are saved.
+        # For each model, creates a specific folder where the results will be saved.
+        # --------------------------------------------------------------------------
 
-t_av = np.zeros(len(X))
-t_std = np.zeros(len(X))
-nobjects = np.zeros(len(X))
+        test_dir = test_dir_all[n_model][n_test]
+        print(test_dir)
+        dest_dir = 'Test_' + model_name
 
-for n_im in range(len(X)):
-    im_name = Path(X[n_im]).stem
-    print(im_name)
-    
-    im = imread(X[n_im])
-    im = normalize(im,1,99.8,axis=axis_norm)
-    Lx = im.shape[1]
-    t = np.zeros(repeat)
-    
-    for n_repeat in tqdm(range(repeat)):
-        t0= time.time()
-        
-        if Lx<1000:
-            labels, details = model.predict_instances(im)
-            
-        else:
-            resizer = PadAndCropResizer()
-            axes = 'ZYX'
-            
-            im = resizer.before(im, axes, model._axes_div_by(axes))
-            labels, polys = model.predict_instances(im, n_tiles=(1,8,8))
-            labels = resizer.after(labels, axes)
-            
-        t1 = time.time() - t0
-        t[n_repeat]=t1
-        
-    print("Time elapsed: " + str(np.median(t)) + "+/-" + str(np.std(t)))
-    print(t)
-    
-    nobjects[n_im] = np.max(np.unique(labels))
-    t_av[n_im] = np.median(t)
-    t_std[n_im] = np.std(t)
+        if os.isdir(dest_dir):
+            shutil.rmtree(dest_dir)
+        os.mkdir(dest_dir)
 
-    mask = np.array(labels>0, dtype=int)
-    
-    label_name = im_name + '_label.tif'
-    save_tiff_imagej_compatible(label_name, labels, axes='ZYX')
-    
-    mask_name = im_name + '_mask.tif'
-    save_tiff_imagej_compatible(mask_name, mask, axes='ZYX')
-    
-#print("The average computation time is " + str(np.mean(t)) + " +/- " + str(np.std(t)))
+        # Load the model
+        # --------------
 
-idx = np.argsort(nobjects)
+        model = StarDist3D(None, name=model_name, basedir=model_dir)
+        limit_gpu_memory(None, allow_growth=True)
 
-plt.errorbar(nobjects[idx], t_av[idx], t_std[idx], label='both limits (default)')
-plt.xlabel('N detected objects')
-plt.ylabel('Computation time (s)')
+        # Look for the data. Depending whether the images are large (>1000x1000pix) or
+        # small, the procedure for the image reconstruction is not the same.
+        # ------------------------------------------------------------------
 
-fig1 = plt.gcf()
-plt.show()
-plt.draw()
-fig1.savefig('Computation_time.png')
+        os.chdir(test_dir)
+        X = sorted(glob('*.tif'))
+        for n in range(len(X)):
+            X[n] = os.path.abspath(X[n])
+
+        axis_norm = (0, 1, 2)
+
+        t_av = np.zeros(len(X))
+        t_std = np.zeros(len(X))
+        nobjects = np.zeros(len(X))
+
+        # Define the destination folder as the main folder
+        # ------------------------------------------------
+
+        os.chdir(dest_dir)
+
+        for n_im in range(len(X)):
+            im_name = Path(X[n_im]).stem
+            print(im_name)
+
+            im = imread(X[n_im])
+            im = normalize(im, 1, 99.8, axis=axis_norm)
+            Lx = im.shape[1]
+            t = np.zeros(repeat)
+
+            t0 = time.time()
+            if Lx < 1000:
+                labels, details = model.predict_instances(im)
+
+            else:
+                resizer = PadAndCropResizer()
+                axes = 'ZYX'
+
+                im = resizer.before(im, axes, model._axes_div_by(axes))
+                labels, polys = model.predict_instances(im, n_tiles=(1, 8, 8))
+                labels = resizer.after(labels, axes)
+
+            t1 = time.time() - t0
+            print("Time elapsed: " + str(t1))
+
+            nobjects[n_im] = np.max(np.unique(labels))
+            t_av[n_im] = np.median(t)
+            t_std[n_im] = np.std(t)
+
+            mask = np.array(labels > 0, dtype=int)
+
+            raw_name = im_name + '.tif'
+            save_tiff_imagej_compatible(raw_name, im, axes='ZYX')
+
+            label_name = im_name + '_label.tif'
+            save_tiff_imagej_compatible(label_name, labels, axes='ZYX')
+
+            mask_name = im_name + '_mask.tif'
+            save_tiff_imagej_compatible(mask_name, mask, axes='ZYX')
+
+        # print("The average computation time is " + str(np.mean(t)) + " +/- " + str(np.std(t)))
+        #
+        # idx = np.argsort(nobjects)
+        #
+        # plt.errorbar(nobjects[idx], t_av[idx], t_std[idx], label='both limits (default)')
+        # plt.xlabel('N detected objects')
+        # plt.ylabel('Computation time (s)')
+        #
+        # fig1 = plt.gcf()
+        # plt.show()
+        # plt.draw()
+        # fig1.savefig('Computation_time.png')
