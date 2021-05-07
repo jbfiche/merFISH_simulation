@@ -5,12 +5,10 @@ import numpy as np
 import shutil
 import re
 
-data_folder = ["/home/jb/Desktop/Data_single_loci/Simulation_2021_05_04/Data_1/",
-               "/home/jb/Desktop/Data_single_loci/Simulation_2021_05_04/Data_2/"]
-# data_folder = ["/home/jb/Desktop/Data_single_loci/Simulation_2021_05_04/Data_3/"]
-dest_folder = "/home/jb/Desktop/Data_single_loci/Simulation_2021_05_04/"
+data_folder = ["/home/jb/Desktop/Data_single_loci/Simulation_06_05_21/"]
+dest_folder = "/home/jb/Desktop/Data_single_loci/Simulation_06_05_21/Training_data_raw/"
 
-data_type = "Deconvolved" # "Raw"
+data_type = "Raw" #"Deconvolved" #
 
 # Define the folders for the training and testing data
 # ----------------------------------------------------
@@ -48,10 +46,10 @@ for folder in data_folder:
         return [atoi(c) for c in re.split(r'(\d+)', text)]
 
     if data_type == "Deconvolved":
-        os.chdir(folder + 'Deconvolved_data')
+        os.chdir(folder + 'Deconvolved')
         raw_data = glob.glob('ROI_*_converted_decon.tif')
     else:
-        os.chdir(folder + 'Raw_data')
+        os.chdir(folder + 'Raw')
         raw_data = glob.glob('ROI_*.tif')
 
     raw_data.sort(key=natural_keys)
@@ -77,17 +75,24 @@ for folder in data_folder:
         raw = tifffile.imread(raw_data[n_file])
         gt = tifffile.imread(gt_data[n_file])
 
-        raw_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
-        gt_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
+        if data_type == "Deconvolved":
+            raw_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
+            gt_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
 
-        # raw_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
-        # gt_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
+            n_frame = round(raw.shape[1] / 5)
+            for frame in range(n_frame):
+                raw_small[:, :, frame] = raw[0, 5 * frame, :, :]
+                gt_small[:, :, frame] = gt[5 * frame, :, :]
 
-        n_frame = round(raw.shape[1]/5)
-        for frame in range(n_frame):
-            raw_small[:, :, frame] = raw[0, 5*frame, :, :]
-            # raw_small[:, :, frame] = raw[5*frame, :, :]
-            gt_small[:, :, frame] = gt[5 * frame, :, :] + gt[5 * frame + 1, :, :] #+ gt[5 * frame + 2, :, :] + gt[5 * frame + 3, :, :] + gt[5 * frame + 4, :, :]
+        elif data_type == "Raw":
+
+            raw_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
+            gt_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
+
+            n_frame = round(raw.shape[0]/5)
+            for frame in range(n_frame):
+                raw_small[:, :, frame] = raw[5*frame, :, :]
+                gt_small[:, :, frame] = gt[5 * frame, :, :]
 
     # Save the movies, either for the training or the testing set
     # -----------------------------------------------------------
