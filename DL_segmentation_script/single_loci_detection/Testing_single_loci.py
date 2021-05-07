@@ -68,7 +68,7 @@ for n_model in range(len(model_dir_all)):
         print(test_dir)
         dest_dir = 'Test_' + model_name
 
-        if os.isdir(dest_dir):
+        if os.path.isdir(dest_dir):
             shutil.rmtree(dest_dir)
         os.mkdir(dest_dir)
 
