@@ -11,9 +11,10 @@ image:
   background_intensity : [15,70]
   background_step : [1,6]
   intensity_single_probe : 25
+  intensity_threshold : 5
 
 acquisition_data:
-  nROI : 10
+  nROI : 150
 
 ground_truth :
   simulated_psf_width : 400 # in nm
