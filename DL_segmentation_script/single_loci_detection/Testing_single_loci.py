@@ -66,8 +66,9 @@ for n_model in range(len(model_dir_all)):
 
         test_dir = test_dir_all[n_model][n_test]
         print(test_dir)
-        dest_dir = 'Test_' + model_name
+        os.chdir(test_dir)
 
+        dest_dir = 'Test_' + model_name
         if os.path.isdir(dest_dir):
             shutil.rmtree(dest_dir)
         os.mkdir(dest_dir)
@@ -82,7 +83,6 @@ for n_model in range(len(model_dir_all)):
         # small, the procedure for the image reconstruction is not the same.
         # ------------------------------------------------------------------
 
-        os.chdir(test_dir)
         X = sorted(glob('*.tif'))
         for n in range(len(X)):
             X[n] = os.path.abspath(X[n])
