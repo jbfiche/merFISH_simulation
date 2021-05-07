@@ -53,6 +53,7 @@ class SimulateData:
         self.c = param["ground_truth"]["simulated_psf_height"]  # in nm
 
         self.bkg = param["image"]["background_intensity"]
+        self.threshold = param["image"]["intensity_threshold"]
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
@@ -301,7 +302,7 @@ class SimulateData:
             bkg = self.bkg_stack[xmin:xmax, ymin:ymax, zmin:zmax]
 
             # check there is enough signal to allow a proper detection of the locus
-            if int_locus / np.std(bkg) > 3.5:
+            if int_locus / np.std(bkg) > self.threshold:
 
                 # calculate the mean position
 
