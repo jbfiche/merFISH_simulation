@@ -89,81 +89,144 @@ class Loci:
 
         loci = dict()
         for n in range(n_detections):
+            
+            # Using a uniform probability distribution, generate the 3D
+            # coordinates of the locus as well as the probability for a probe
+            # to hybridize to this locus. 
 
             diploid = False
             x0 = np.random.uniform(0, self.Lx, 1)
             y0 = np.random.uniform(0, self.Ly, 1)
             z0 = np.random.uniform(self.dz, self.Lz - self.dz, 1)
             p_hyb = np.random.uniform(self.P_hybridization[0], self.P_hybridization[1], 1)
+            
+            # Calculate the size of the locus as well as the coordinates and
+            # intensity of all the probes hybridized to it
+            
+            dx, dy, dz = self.calculate_locus_size()
+            locus_coordinates = self.calculate_probes_coordinates(x0, y0, z0, dx, dy, dz, p_hyb)
 
             # Since the genome is diploid and similar loci have a very high probability (>0.9) to be paired together,
-            # the calculation is performed in two steps. The first one corresponds to the locus itself. The second step
-            # to its copy. The position of the copy is usually very close to the initial locus.
-
-            for n_locus in range(2):
-
-                if n_locus == 1:
-
-                    # Bernouilli process to decide whether the locus is diploid. If yes, the position of the paired
-                    # locus is recalculated by estimating the distance between the two loci (chi-square distribution).
-                    # The paired locus is accepted only if it is localized within the border of the image.
-
-                    if np.random.binomial(1, self.P_paired) == 1:
-
-                        r_diploid = np.random.chisquare(1) * self.D_diploid + self.D_diploid
-                        theta = np.random.uniform(0, np.pi, 1)
-                        phi = np.random.uniform(0, 2 * np.pi, 1)
-
-                        x0 = x0 + r_diploid * np.sin(theta) * np.cos(phi)
-                        y0 = y0 + r_diploid * np.sin(theta) * np.sin(phi)
-                        z0 = z0 + r_diploid * np.cos(theta)
-
-                        # Check the coordinates of the paired locus are still in the border defined by the parameters
-
-                        if (0 < x0 < self.Lx) and (0 < y0 < self.Ly) and (self.dz < z0 < self.Lz - self.dz):
-                            diploid = True
-                        else:
-                            break
-                    else:
-                        break
-
-                b = np.random.uniform(self.bmin, self.bmax, 1)
-                g = np.random.uniform(self.gmin, self.gmax, 1)
-                r = (g * self.D_probes ** b) / 1000  # returns the estimated size of the loci in um
-
-                theta = np.random.uniform(0, np.pi, 1)
-                phi = np.random.uniform(0, 2 * np.pi, 1)
-
-                dx = r * np.sin(theta) * np.cos(phi)
-                dy = r * np.sin(theta) * np.sin(phi)
-                dz = r * np.cos(theta)
-
-                # Check the locus is in the range of coordinates allowed
-
-                if (0 < x0+dx < self.Lx) and (0 < y0+dy < self.Ly) and (self.dz < z0+dz < self.Lz - self.dz):
-                    if not diploid:
-                        locus_coordinates = np.zeros((self.N_probes, 4))
-                    else:
-                        locus_coordinates_0 = locus_coordinates
-
-                    for n_probe in range(self.N_probes):
-
-                        if np.random.binomial(1, p_hyb) == 1:
-                            locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
-                            locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
-                            locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
-                            locus_coordinates[n_probe, 3] = np.random.poisson(self.Intensity)
-                else:
-                    if diploid:
-                        diploid = False
-
+            # the same calculation is performed for the locus copy. A Bernouilli process is used to decide whether the locus
+            # is diploid. If yes, the position of the paired locus is recalculated by estimating the distance between
+            # the two loci (chi-square distribution).
+            
+            diploid_coord, diploid = self.calculate_diploid_coordinates(x0, y0, z0)
             if diploid:
-                locus_coordinates = np.concatenate((locus_coordinates_0, locus_coordinates))
+                dx, dy, dz = self.calculate_locus_size()
+                locus_coordinates = np.concatenate((locus_coordinates,self.calculate_probes_coordinates(diploid_coord[0],
+                                                                                                        diploid_coord[1],
+                                                                                                        diploid_coord[2],
+                                                                                                        dx, dy, dz, p_hyb)))
 
             key = "Locus_" + str(n)
             loci[key] = locus_coordinates
-
+         
         return loci
+    
+    def calculate_locus_size(self):
+        """
+        From Cattoni et al. 2O17 - Nat. Communications, it is possible to infer
+        from the genomic distance the physical distance. The size of the locus 
+        is calculated based on a power law, the parameters b/g are generated 
+        according to the values published.
+        The size of the locus should be small compared to the persistance length
+        of the chromatine. The locus is therefore simulated as a straight rod.
+        It orientation is randomly computed using 3D spherical coordinates
+        (theta & phi) and finally converted to cartesian coordinates. 
+
+        Returns
+        -------
+        dx, dy, dz = extremities of the locus
+        """
+        b = np.random.uniform(self.bmin, self.bmax, 1)
+        g = np.random.uniform(self.gmin, self.gmax, 1)
+        r = (g * self.D_probes ** b) / 1000  # returns the estimated size of the loci in um
+
+        theta = np.random.uniform(0, np.pi, 1)
+        phi = np.random.uniform(0, 2 * np.pi, 1)
+
+        dx = r * np.sin(theta) * np.cos(phi)
+        dy = r * np.sin(theta) * np.sin(phi)
+        dz = r * np.cos(theta)
+        
+        return dx, dy, dz
+
+    def calculate_probes_coordinates(self, x0, y0, z0, dx, dy, dz, p_hyb):
+        """
+        According the the positions of the locus and its length, the 3D 
+        coordinates and the intensity of the probes are calculated.
+
+        Parameters
+        ----------
+        x0, y0, z0 : float - positions of the locus
+        dx, dy, dz : float - length of the locus 
+        p_hyb : float - probability for a probe to hybridize to this locus
+
+        Returns
+        -------
+        locus_coordinates : np array - contains all the coordinates of the 
+        probes. If the coordinates are all zeros, it means the probe is not
+        hybridized. The fourth column corresponds to the intensity associated
+        to the probe
+
+        """
+        
+        # Check the locus is in the range of coordinates allowed
+        if (0 < x0+dx < self.Lx) and (0 < y0+dy < self.Ly) and (self.dz < z0+dz < self.Lz - self.dz):
+            
+            locus_coordinates = np.zeros((self.N_probes, 4))
+            for n_probe in range(self.N_probes):
+
+                if np.random.binomial(1, p_hyb) == 1:
+                    locus_coordinates[n_probe, 0] = x0 + n_probe * dx / self.N_probes
+                    locus_coordinates[n_probe, 1] = y0 + n_probe * dy / self.N_probes
+                    locus_coordinates[n_probe, 2] = z0 + n_probe * dz / self.N_probes
+                    locus_coordinates[n_probe, 3] = np.random.poisson(self.Intensity)
+                    
+            locus_coordinates = locus_coordinates[~np.all(locus_coordinates == 0, axis=1)]
+                    
+        else:
+            locus_coordinates = []
+            
+        return locus_coordinates
+    
+    def calculate_diploid_coordinates(self, x0, y0, z0):
+        """
+        Generate the coodinates of the diploid locus
+
+        Parameters
+        ----------
+        x0, y0, z0 : float - coordinates of the first locus
+
+        Returns
+        -------
+        x, y, z :  float - coordinates of the diploid locus
+        diploid : boolean - indicates whether the locus is diploid or not
+        """
+
+        diploid_coord = np.zeros(3,)
+        if np.random.binomial(1, self.P_paired) == 1:
+
+            r_diploid = np.random.chisquare(1) * self.D_diploid + self.D_diploid
+            theta = np.random.uniform(0, np.pi, 1)
+            phi = np.random.uniform(0, 2 * np.pi, 1)
+
+            diploid_coord[0] = x0 + r_diploid * np.sin(theta) * np.cos(phi)
+            diploid_coord[1] = y0 + r_diploid * np.sin(theta) * np.sin(phi)
+            diploid_coord[2] = z0 + r_diploid * np.cos(theta)
+
+            # Check the coordinates of the paired locus are still in the border defined by the parameters
+
+            if (0 < diploid_coord[0] < self.Lx) and (0 < diploid_coord[1] < self.Ly) and (self.dz < diploid_coord[2] < self.Lz - self.dz):
+                diploid = True
+            else:
+                diploid = False
+                
+        else:
+            diploid = False
+            
+        return diploid_coord, diploid
 
     def define_homogeneous_bkg_coordinates(self, n_detections):
         """
@@ -185,6 +248,18 @@ class Loci:
         return fp_coordinates
 
     def define_inhomogeneous_bkg_coordinates(self, n_detections):
+        """
+        Calculate an inhomogeneous background based on a 3D random walk
+
+        Parameters
+        ----------
+        n_detections : int - define the number of false positive probes
+
+        Returns
+        -------
+        coordinates : np array - return the coordinates and intensity of all
+        false positive probes defining the background
+        """
 
         bkg_step = np.random.uniform(self.bkg_step[0], self.bkg_step[1], 1)
         x0 = np.random.uniform(0, self.Lx)
