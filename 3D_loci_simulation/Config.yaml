@@ -1,20 +1,20 @@
-mainfolder: /home/jb/Workspace/Python/merFISH_simulation/merFISH_simulation/3D_loci_simulation
-destinationfolder : /home/jb/Workspace/Python/merFISH_simulation/Simulated_data_3D
-psffolder : /home/jb/Workspace/Python/merFISH_simulation/merFISH_simulation/3D_loci_simulation/psf_analyze_npy
+mainfolder: /home/jb/Workspace/Python/HiM_segmentation_simulation/3D_loci_simulation
+destinationfolder : /home/jb/Desktop/Simulation_3D
+psffolder : /home/jb/Workspace/Python/HiM_segmentation_simulation/3D_loci_simulation/psf_analyze_npy
 
 image:
   width : 256 # in pix
   height : 256 # in pix
   pixel_size_nm : 100
-  number_z_planes : 150
-  z_spacing_nm : 100
+  number_z_planes : 60
+  z_spacing_nm : 250
   background_intensity : [15,70]
   background_step : [1,6]
   intensity_single_probe : 25
-  intensity_threshold : 5
+  intensity_threshold : 10
 
 acquisition_data:
-  nROI : 150
+  nROI : 200
 
 ground_truth :
   simulated_psf_width : 400 # in nm
