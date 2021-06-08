@@ -18,6 +18,7 @@ class is receiving the following input parameters :
 
 import tifffile
 import numpy as np
+from astropy.modeling import models, fitting
 
 
 # from tqdm import tqdm
@@ -57,11 +58,10 @@ class SimulateData:
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
-        self.psf_files = psf_files
 
         # Define the properties of the simulated sCMOS camera - the parameter for the offset and the gain where
-        # indicated based on measured on the Orca Flash 4
-        # ------------------------------------------------
+        # indicated based on measures performed on the Orca Flash 4
+        # ---------------------------------------------------------
 
         self.gain = np.random.normal(loc=10.36, scale=0.25, size=(self.Dx, self.Dy))
 
@@ -70,6 +70,15 @@ class SimulateData:
 
         self.read_noise = np.random.normal(loc=0.5, scale=0.1, size=(self.Dx, self.Dy))
         self.read_noise = np.absolute(self.read_noise)
+        
+        # Load all the psf files and keep the templates in a dictionary
+        # -------------------------------------------------------------
+        
+        self.n_psf = len(psf_files)
+        self.psf = dict()
+        for n_psf in range(self.n_psf):
+            key = "psf_" + str(n_psf)
+            self.psf[key] = np.load(psf_files[n_psf])
 
         # Define the template for the simulated and the ground-truth data
         # ---------------------------------------------------------------
@@ -115,7 +124,7 @@ class SimulateData:
         """
         From the stack of background images and the list of coordinates for the simulated detections, detections are
         simulated by adding a 3D psf measured on a microscope (from a list of available psf previously normalized and
-        centered). For each coordinates, the psf is randomly selected from a set of available npy file. The psf is
+        centered). For each coordinates, the psf is randomly selected from a set of available npy files. The psf is
         randomly flip in the x/y direction, not along the z axis. From coordinates, the intensity associated to each
         emitter was also defined.
 
@@ -124,11 +133,12 @@ class SimulateData:
         coordinates: numpy array containing the coordinates of each single proche (x, y, z) as well as its intensity
         """
 
-        # Pick the psf images
+        # Select the psf images
         # -------------------
 
-        n_psf = np.random.randint(0, len(self.psf_files))
-        psf = np.load(self.psf_files[n_psf])
+        n_psf = np.random.randint(0, self.n_psf)
+        key = "psf_" + str(n_psf)
+        psf = self.psf[key]
 
         # Apply a random transformation (flip) to the psf
         # -----------------------------------------------
@@ -149,65 +159,133 @@ class SimulateData:
             z = coordinates[n_probe, 2]
             I = coordinates[n_probe, 3]
 
-            if x != 0 and y != 0 and z != 0:
+            # Convert the coordinates into pixel/plane
+            # -----------------------------------------
 
-                # Convert the coordinates into pixel/plane
-                # -----------------------------------------
+            x = x * 1000 / self.pixel_size + self.Lx_psf / 2
+            y = y * 1000 / self.pixel_size + self.Ly_psf / 2
+            z = z * 1000 / self.dz_planes
 
-                x = x * 1000 / self.pixel_size + self.Lx_psf / 2
-                y = y * 1000 / self.pixel_size + self.Ly_psf / 2
-                z = z * 1000 / self.dz_planes
+            # Select the central plane in the stack - np.floor(z) is 
+            # indicating which plane of the stack will be used as the central
+            # plane for the psf. 
+            # Since the distance between the planes is smaller for the psf, 
+            # dz is indicating which plane of the psf stack will be used as
+            # central plane (50+dz).
+            # ---------------------
+            
+            self.add_psf_images(x, y, z, I, psf)
 
-                # Select the central plane in the stack - np.floor(z) is 
-                # indicating which plane of the stack will be used as the central
-                # plane for the psf. 
-                # Since the distance between the planes is smaller for the psf, 
-                # dz is indicating which plane of the psf stack will be used as
-                # central plane (50+dz).
-                # ---------------------
+            # dz_psf = (z - np.floor(z)) * self.r
+            # dz_psf = np.round(dz_psf)
 
-                dz_psf = (z - np.floor(z)) * self.r
-                dz_psf = np.round(dz_psf)
+            # x0 = np.round(x)
+            # y0 = np.round(y)
+            # z0 = np.floor(z)
 
-                x0 = np.round(x)
-                y0 = np.round(y)
-                z0 = np.floor(z)
+            # dzmin = - self.Lz_psf / 2 / self.r
+            # dzmax = self.Lz_psf / 2 / self.r
 
-                dzmin = - self.Lz_psf / 2 / self.r
-                dzmax = self.Lz_psf / 2 / self.r
+            # for dz in range(int(dzmin), int(dzmax), 1):
 
-                for dz in range(int(dzmin), int(dzmax), 1):
+            #     # Select the stack plane and the psf plane
+            #     # ----------------------------------------
+            #     z = z0 + dz
+            #     z_psf = self.Lz_psf / 2 + dz * self.r + dz_psf
 
-                    # Select the stack plane and the psf plane
-                    # ----------------------------------------
-                    z = z0 + dz
-                    z_psf = self.Lz_psf / 2 + dz * self.r + dz_psf
+            #     if 0 <= z <= self.Lz - 1 and 0 <= z_psf <= self.Lz_psf - 1:
 
-                    if 0 <= z <= self.Lz - 1 and 0 <= z_psf <= self.Lz_psf - 1:
+            #         im = self.stack[:, :, int(z)]
+            #         im_psf = psf[int(z_psf)] * I
 
-                        im = self.stack[:, :, int(z)]
-                        im_psf = psf[int(z_psf)] * I
+            #         x_roi_min = int(x0 - self.Lx_psf / 2)
+            #         x_roi_max = int(x0 + self.Lx_psf / 2)
+            #         y_roi_min = int(y0 - self.Ly_psf / 2)
+            #         y_roi_max = int(y0 + self.Ly_psf / 2)
 
-                        x_roi_min = int(x0 - self.Lx_psf / 2)
-                        x_roi_max = int(x0 + self.Lx_psf / 2)
-                        y_roi_min = int(y0 - self.Ly_psf / 2)
-                        y_roi_max = int(y0 + self.Ly_psf / 2)
+            #         try:
+            #             im[x_roi_min:x_roi_max, y_roi_min:y_roi_max] = im_psf + im[x_roi_min:x_roi_max,
+            #                                                                     y_roi_min:y_roi_max]
+            #             self.stack[:, :, int(z)] = im
+            #         except ValueError:
+            #             print(x_roi_min, x_roi_max, y_roi_min, y_roi_max)
+            #             print(ValueError)
+            #             break
 
-                        try:
-                            im[x_roi_min:x_roi_max, y_roi_min:y_roi_max] = im_psf + im[x_roi_min:x_roi_max,
+    def add_psf_images(self, x, y, z, I, psf):
+        """
+        For each emitter, the 3D images of the psf are added to the simulated
+        stack
+
+        Parameters
+        ----------
+        x , y, z : float - coordinates of the probe
+        I : float - intensity associated to the probe. 
+        psf : np array - image of the selected psf, after transformation
+        """
+        
+        # Return the closest plane value according to the position z of the probe
+        # -----------------------------------------------------------------------
+        x0 = np.round(x)
+        y0 = np.round(y)
+        z0 = np.floor(z)
+        
+        # Define the boundaries of the crop
+        # ---------------------------------
+        
+        x_roi_min = int(x0 - (self.Lx_psf-1) / 2)
+        x_roi_max = int(x0 + (self.Lx_psf-1) / 2 + 1) # Need to add 1, since python is not taking into account the last index
+        y_roi_min = int(y0 - (self.Ly_psf-1) / 2)
+        y_roi_max = int(y0 + (self.Ly_psf-1) / 2 + 1)
+        
+        # z corresponds to the central position of the psf. Since the inter-plane
+        # distance is not the same for the psf and the simulated images, dz_psf 
+        # is used to define which psf plane (z0_psf) is the closest to z.
+        # --------------------------------------------------------------
+        dz_psf = (z - z0) * self.r
+        dz_psf = np.round(dz_psf)
+        z0_psf = (self.Lz_psf-1) / 2 + dz_psf
+        
+        # According to the central psf plane and the total number of images
+        # available for the psf and the simulated movie, define the minimum and
+        # maximum values for the planes
+        # ----------------------------
+        if z0_psf / self.r < z0:
+            zmin = np.ceil(z0 - z0_psf / self.r)
+        else:
+            zmin = 0
+            
+        if (self.Lz_psf - 1 - z0_psf) / self.r < self.Lz - 1 - z0:
+            zmax = np.floor(z0 + (self.Lz_psf - 1 - z0_psf) / self.r)
+        else:
+            zmax = self.Lz - 1
+
+        zmin = int(zmin)
+        zmax = int(zmax)
+            
+        # Add the psf images to the stack
+        # -------------------------------
+        for z in range(zmin, zmax, 1):
+            
+            try :
+                z_psf = z0_psf - (z0 - z)*self.r
+                im = self.stack[:, :, int(z)]
+                im_psf = psf[int(z_psf)] * I
+                im[x_roi_min:x_roi_max, y_roi_min:y_roi_max] = im_psf + im[x_roi_min:x_roi_max,
                                                                                     y_roi_min:y_roi_max]
-                            self.stack[:, :, int(z)] = im
-                        except ValueError:
-                            print(x_roi_min, x_roi_max, y_roi_min, y_roi_max)
-                            print(ValueError)
-                            break
+                self.stack[:, :, int(z)] = im
+            except ValueError:
+                print(x_roi_min, x_roi_max, y_roi_min, y_roi_max, z, z_psf, self.Lz, self.Lz_psf)
+                print(ValueError)
+                break
+            
 
     def simulate_raw_stack(self, nROI):
         """
         Create the stack of simulated images. The simulation is performed in two steps:
         - the false positive are first added to the background images
         - the psf associated to each emitters is then added.
-        At the end of the process, the stack is savec as a tiff file.
+        At the end of the process, the stack is saved as a tiff file.
 
         Parameters
         ----------
@@ -219,12 +297,8 @@ class SimulateData:
         """
 
         # Calculate the background images with the false positive events
-
-        # for n in range(self.n_fp):
-        #     key = "FP_" + str(n)
-        #     coordinates = self.fp_coordinates[key]
-        #     self.add_locus_image(coordinates)
-
+        # --------------------------------------------------------------
+        
         print('simulate {} false positive'.format(self.n_fp))
         coordinates = np.zeros((1, 4))
         for n in range(self.n_fp):
@@ -232,17 +306,24 @@ class SimulateData:
             self.add_locus_image(coordinates)
 
         # Keep the background image for the ground truth calculation
+        # ----------------------------------------------------------
+        
         self.bkg_stack = self.stack[int(self.Lx_psf / 2): int(self.Lx + self.Lx_psf / 2),
                    int(self.Ly_psf / 2): int(self.Ly + self.Ly_psf / 2), :]
 
         # Simulate the loci
+        # -----------------
+        
         print('simulate {} true positive'.format(self.n_locus))
         for n in range(self.n_locus):
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
-            self.add_locus_image(coordinates)
+            if len(coordinates) > 0:
+                self.add_locus_image(coordinates)
 
         # Save the final stack of images
+        # ------------------------------
+        
         name = "ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
@@ -261,6 +342,7 @@ class SimulateData:
                 # plt.show()
 
         return name
+
 
     def simulate_ground_truth(self, nROI):
         """
@@ -284,32 +366,35 @@ class SimulateData:
         print('Simulate ground truth')
 
         for n in range(self.n_locus):
+            
             key = "Locus_" + str(n)
             coordinates = self.loci_coordinates[key]
+            
+            if len(coordinates) > 0:
 
-            # Remove all the non-zero values
-            idx = np.argwhere(coordinates)
-            coordinates = coordinates[np.unique(idx[:, 0]), :]
+                # Calculate the centroid position of the locus
+                # --------------------------------------------
+                
+                x0 = np.average(coordinates[:, 0], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+                y0 = np.average(coordinates[:, 1], weights=coordinates[:, 3]) * 1000 / self.pixel_size
+                z0 = np.average(coordinates[:, 2], weights=coordinates[:, 3]) * 1000 / self.dz_planes
+                int_locus = sum(coordinates[:, 3])
+    
+                # Calculate the background around the locus position
+                # --------------------------------------------------
+                
+                SNR = self.calculate_SNR(x0, y0, z0, int_locus)
+    
+                # check there is enough signal to allow a proper detection of the locus
+                if SNR > self.threshold:
+        
+                    # simulate the psf as an ellipsoid
+                    for x, y, z in self.ellipsoid_coordinates:
+                        if x + x0 < self.Lx and y + y0 < self.Ly and z + z0 < self.Lz:
+                            self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n + 1
 
-            # Calculate the centroid position of the locus
-            x0 = np.average(coordinates[:, 0], weights=coordinates[:, 3]) * 1000 / self.pixel_size
-            y0 = np.average(coordinates[:, 1], weights=coordinates[:, 3]) * 1000 / self.pixel_size
-            z0 = np.average(coordinates[:, 2], weights=coordinates[:, 3]) * 1000 / self.dz_planes
-            int_locus = sum(coordinates[:, 3])
-
-            # Calculate the background around the locus position
-            xmin, xmax, ymin, ymax, zmin, zmax = self.calculate_roi_limits(x0, y0, z0)
-            bkg = self.bkg_stack[xmin:xmax, ymin:ymax, zmin:zmax]
-
-            # check there is enough signal to allow a proper detection of the locus
-            if int_locus / np.std(bkg) > self.threshold:
-
-                # calculate the mean position
-
-                # simulate the psf as an ellipsoid
-                for x, y, z in self.ellipsoid_coordinates:
-                    if x + x0 < self.Lx and y + y0 < self.Ly and z + z0 < self.Lz:
-                        self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n + 1
+        # Save the ground truth and the mask
+        # ----------------------------------        
 
         name = "GT_ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
@@ -325,6 +410,27 @@ class SimulateData:
                 im = self.gt_stack[:, :, n]
                 im[im > 0] = 1
                 tf.save(np.round(im).astype(np.uint16))
+                
+                
+    def calculate_SNR(self, x0, y0, z0, I):
+        """
+        Estimate SNR following Serge et al. method
+
+        Parameters
+        ----------
+        x0, y0, z0 : int - average position of the locus
+        I : float - total intensity of the locus
+        
+        Returns
+        -------
+        SNR : float - return the estimated value of the SNR for the locus
+        """
+        xmin, xmax, ymin, ymax, zmin, zmax = self.calculate_roi_limits(x0, y0, z0)
+        bkg = self.bkg_stack[xmin:xmax, ymin:ymax, zmin:zmax]
+        
+        SNR = 10*np.log10(I**2 / np.std(bkg)**2)
+        return SNR
+        
 
     def create_ellipsoid_template(self):
         """
@@ -354,6 +460,21 @@ class SimulateData:
         self.ellipsoid_coordinates = ellipsoid_coordinates[0:n, :]
 
     def calculate_roi_limits(self, x, y, z):
+        """
+        Using the position of the simulated locus, calculate the limits of an
+        ROI around the x,y,z coordinates according to the specified dimensions
+        dxy & dz.
+
+        Parameters
+        ----------
+        x : float - x position of the simulated locus
+        y : float - y position of the simulated locus
+        z : float - z position of the simulated locus
+
+        Returns
+        -------
+        Boundaries of the ROI.
+        """
 
         dxy = 6
         dz = 2
