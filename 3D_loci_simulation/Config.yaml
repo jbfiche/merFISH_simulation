@@ -11,7 +11,7 @@ image:
   background_intensity : [15,70]
   background_step : [0.2,1]
   intensity_single_probe : 20
-  intensity_threshold : 21.8
+  SNR_threshold : [21.4, 21.6, 21.8, 22, 22.2, 22.4]
 
 acquisition_data:
   nROI : 10
