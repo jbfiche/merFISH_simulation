@@ -58,10 +58,9 @@ class Loci:
         self.P_paired = param["detection"]["diploid_pair_probability"]
         self.D_diploid = param["detection"]["average_paired_distance_nm"]  # average distance separating two paired loci
 
-        # For the inhomogeneous background simulation
+        # For the inhomogeneous background simulation, define the mean step 
+        # distance in µm between two successive localizations
 
-        self.step_xy = param["image"]["pixel_size_nm"] / 1000
-        self.step_z = param["image"]["z_spacing_nm"] / 1000
         self.bkg_step = param["image"]["background_step"]
 
         # Finally, the probability for each probe to hybridize is also defined as
@@ -264,7 +263,7 @@ class Loci:
         bkg_step = np.random.uniform(self.bkg_step[0], self.bkg_step[1], 1)
         x0 = np.random.uniform(0, self.Lx)
         y0 = np.random.uniform(0, self.Ly)
-        z0 = np.random.uniform(self.dz, self.Lz - self.dz)
+        z0 = np.random.uniform(0, self.Lz)
         step = np.random.normal(loc=0,
                                 scale=bkg_step,
                                 size=(3, n_detections))
@@ -276,31 +275,34 @@ class Loci:
         coordinates[3, 0] = intensity[0]
 
         for n in range(n_detections):
-            coordinates[0, n+1] = step[0, n] * self.step_xy + coordinates[0, n]
-            coordinates[1, n+1] = step[1, n] * self.step_xy + coordinates[1, n]
-            coordinates[2, n+1] = step[2, n] * self.step_z + coordinates[2, n]
+            
+            dx = step[0, n]
+            if dx + coordinates[0, n] < 0:
+                coordinates[0, n+1] = dx + coordinates[0, n] + self.Lx
+            elif dx + coordinates[0, n] > self.Lx:
+                coordinates[0, n+1] = dx + coordinates[0, n] - self.Lx
+            else:
+                coordinates[0, n+1] = dx + coordinates[0, n]
+                
+            dy = step[1, n]
+            if dy + coordinates[1, n] < 0:
+                coordinates[1, n+1] = dy + coordinates[1, n] + self.Ly
+            elif dy + coordinates[1, n] > self.Ly:
+                coordinates[1, n+1] = dy + coordinates[1, n] - self.Ly
+            else:
+                coordinates[1, n+1] = dy + coordinates[1, n]
+                
+            dz = step[2, n]
+            if dz + coordinates[2, n] < 0:
+                coordinates[2, n+1] = dz + coordinates[2, n] + self.Lz
+            elif dz + coordinates[2, n] > self.Lz:
+                coordinates[2, n+1] = dz + coordinates[2, n] - self.Lz
+            else:
+                coordinates[2, n+1] = dz + coordinates[2, n]
+                
             coordinates[3, n+1] = intensity[n+1]
 
-        x = coordinates[0, :]
-        idx = np.where(x < 0)
-        coordinates[0, idx] = coordinates[0, idx] + self.Lx
-        idx = np.where(x > self.Lx)
-        coordinates[0, idx] = coordinates[0, idx] - self.Lx
-
-        y = coordinates[1, :]
-        idx = np.where(y < 0)
-        coordinates[1, idx] = coordinates[1, idx] + self.Ly
-        idx = np.where(y > self.Ly)
-        coordinates[1, idx] = coordinates[1, idx] - self.Ly
-
-        z = coordinates[2, :]
-        idx = np.where(z < 0)
-        coordinates[2, idx] = coordinates[2, idx] + self.Lz
-        idx = np.where(z > self.Lz)
-        coordinates[2, idx] = coordinates[2, idx] - self.Lz
-
         coordinates = np.transpose(coordinates)
-
         return coordinates
 
 
