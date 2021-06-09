@@ -9,12 +9,12 @@ image:
   number_z_planes : 60
   z_spacing_nm : 250
   background_intensity : [15,70]
-  background_step : [1,6]
-  intensity_single_probe : 25
-  intensity_threshold : 10
+  background_step : [0.2,1]
+  intensity_single_probe : 20
+  intensity_threshold : 21.8
 
 acquisition_data:
-  nROI : 200
+  nROI : 10
 
 ground_truth :
   simulated_psf_width : 400 # in nm
@@ -38,4 +38,4 @@ detection:
   gamma_max : 100
   diploid_pair_probability : 0.9
   average_paired_distance_nm : 70 # in nm
-  probe_hybridization_probability : [0.2, 0.7] # probability for a single probe to hybridize to a loci
+  probe_hybridization_probability : [0.1, 0.7] # probability for a single probe to hybridize to a loci
