@@ -94,12 +94,16 @@ for roi in range(nROI):
     fp_coordinates_inhomogeneous = _loci.define_inhomogeneous_bkg_coordinates(n_fp[1].astype(int))
     fp_coordinates = np.concatenate((fp_coordinates_homogeneous, fp_coordinates_inhomogeneous))
 
-    # Generate the images
-    # -------------------
-
+    # Generate the raw images
+    # -----------------------
+    
     _stack = SimulateData(config_parameters, n_locus, loci_coordinates, np.sum(n_fp.astype(int)), fp_coordinates, psf_files)
     _stack.create_bkg_stack()
     movie_name = _stack.simulate_raw_stack(roi)
+    
+    # Generate the ground truth images
+    # --------------------------------
+    
     _stack.create_ellipsoid_template()
     _stack.simulate_ground_truth(roi)
 
