@@ -54,7 +54,7 @@ class SimulateData:
         self.c = param["ground_truth"]["simulated_psf_height"]  # in nm
 
         self.bkg = param["image"]["background_intensity"]
-        self.threshold = param["image"]["intensity_threshold"]
+        self.threshold = param["image"]["SNR_threshold"]
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
