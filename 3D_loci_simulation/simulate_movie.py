@@ -165,52 +165,12 @@ class SimulateData:
             x = x * 1000 / self.pixel_size + self.Lx_psf / 2
             y = y * 1000 / self.pixel_size + self.Ly_psf / 2
             z = z * 1000 / self.dz_planes
-
-            # Select the central plane in the stack - np.floor(z) is 
-            # indicating which plane of the stack will be used as the central
-            # plane for the psf. 
-            # Since the distance between the planes is smaller for the psf, 
-            # dz is indicating which plane of the psf stack will be used as
-            # central plane (50+dz).
-            # ---------------------
+                
+            # Add the psf image to the simulated stack
+            # ----------------------------------------
             
             self.add_psf_images(x, y, z, I, psf)
-
-            # dz_psf = (z - np.floor(z)) * self.r
-            # dz_psf = np.round(dz_psf)
-
-            # x0 = np.round(x)
-            # y0 = np.round(y)
-            # z0 = np.floor(z)
-
-            # dzmin = - self.Lz_psf / 2 / self.r
-            # dzmax = self.Lz_psf / 2 / self.r
-
-            # for dz in range(int(dzmin), int(dzmax), 1):
-
-            #     # Select the stack plane and the psf plane
-            #     # ----------------------------------------
-            #     z = z0 + dz
-            #     z_psf = self.Lz_psf / 2 + dz * self.r + dz_psf
-
-            #     if 0 <= z <= self.Lz - 1 and 0 <= z_psf <= self.Lz_psf - 1:
-
-            #         im = self.stack[:, :, int(z)]
-            #         im_psf = psf[int(z_psf)] * I
-
-            #         x_roi_min = int(x0 - self.Lx_psf / 2)
-            #         x_roi_max = int(x0 + self.Lx_psf / 2)
-            #         y_roi_min = int(y0 - self.Ly_psf / 2)
-            #         y_roi_max = int(y0 + self.Ly_psf / 2)
-
-            #         try:
-            #             im[x_roi_min:x_roi_max, y_roi_min:y_roi_max] = im_psf + im[x_roi_min:x_roi_max,
-            #                                                                     y_roi_min:y_roi_max]
-            #             self.stack[:, :, int(z)] = im
-            #         except ValueError:
-            #             print(x_roi_min, x_roi_max, y_roi_min, y_roi_max)
-            #             print(ValueError)
-            #             break
+            
 
     def add_psf_images(self, x, y, z, I, psf):
         """
@@ -220,14 +180,17 @@ class SimulateData:
         Parameters
         ----------
         x , y, z : float - coordinates of the probe
-        I : float - intensity associated to the probe. 
+            x_roi_min = int(x0 - (self.Lx_psf-1) / 2)
+        x_roi_max = int(x0 + (self.Lx_psf-1) / 2 + 1) # Need to add 1, since python is not taking into account the last index
+        y_roi_min = int(y0 - (self.Ly_psf-1) / 2)
+        y_roi_max = int(y0 + (self.Ly_psf-1) / 2 + 1)    I : float - intensity associated to the probe. 
         psf : np array - image of the selected psf, after transformation
         """
         
         # Return the closest plane value according to the position z of the probe
         # -----------------------------------------------------------------------
-        x0 = np.round(x)
-        y0 = np.round(y)
+        x0 = np.floor(x)
+        y0 = np.floor(y)
         z0 = np.floor(z)
         
         # Define the boundaries of the crop
@@ -265,7 +228,7 @@ class SimulateData:
             
         # Add the psf images to the stack
         # -------------------------------
-        for z in range(zmin, zmax, 1):
+        for z in range(zmin, zmax+1, 1):
             
             try :
                 z_psf = z0_psf - (z0 - z)*self.r
@@ -324,13 +287,14 @@ class SimulateData:
         # Save the final stack of images
         # ------------------------------
         
+        self.stack = self.stack[int(self.Lx_psf / 2): int(self.Lx + self.Lx_psf / 2),
+                                    int(self.Ly_psf / 2): int(self.Ly + self.Ly_psf / 2), :]
+        
         name = "ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
                 im = self.stack[:, :, n]
-                im = im[int(self.Lx_psf / 2): int(self.Lx + self.Lx_psf / 2),
-                     int(self.Ly_psf / 2): int(self.Ly + self.Ly_psf / 2)]
                 tf.save(np.round(im).astype(np.uint16))
 
                 # fig, ax = plt.subplots()
@@ -414,7 +378,9 @@ class SimulateData:
                 
     def calculate_SNR(self, x0, y0, z0, I):
         """
-        Estimate SNR following Serge et al. method
+        Estimate SNR following Serge et al. method. The calculation is perfomed
+        on multiple planes around the focal plane, in order to have a more 
+        accurate estimation of the SNR
 
         Parameters
         ----------
@@ -426,9 +392,26 @@ class SimulateData:
         SNR : float - return the estimated value of the SNR for the locus
         """
         xmin, xmax, ymin, ymax, zmin, zmax = self.calculate_roi_limits(x0, y0, z0)
-        bkg = self.bkg_stack[xmin:xmax, ymin:ymax, zmin:zmax]
+        dz = zmax-zmin
         
-        SNR = 10*np.log10(I**2 / np.std(bkg)**2)
+        snr = np.zeros((dz+1,))
+        
+        for n in range(dz+1):
+            z = zmin + n
+            bkg = self.bkg_stack[xmin:xmax, ymin:ymax, z]
+            im = self.stack[xmin:xmax, ymin:ymax, z]
+            
+            bkg_std = np.std(bkg)
+            bkg_mean = np.median(bkg)
+            
+            # I = np.amax(im) - bkg_mean 
+            im = np.sort(im, axis = None)
+            I = np.sum(im[len(im)-5:len(im)]) - 5*bkg_mean 
+            
+            snr[n] = 10*np.log10(I**2 / bkg_std**2)
+        
+        SNR = np.mean(snr)
+        print(SNR, snr, zmin, zmax)
         return SNR
         
 
@@ -477,7 +460,7 @@ class SimulateData:
         """
 
         dxy = 6
-        dz = 2
+        dz = 1
 
         if x > dxy:
             xmin = x - dxy
