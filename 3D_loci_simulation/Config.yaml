@@ -1,6 +1,7 @@
 mainfolder: /home/jb/Workspace/Python/HiM_segmentation_simulation/3D_loci_simulation
-destinationfolder : /home/jb/Desktop/Simulation_3D
 psffolder : /home/jb/Workspace/Python/HiM_segmentation_simulation/3D_loci_simulation/psf_analyze_npy
+destinationfolder : /mnt/grey/DATA/users/JB/Simulations_3D
+deconvolution_folder : /mnt/grey/DATA/users/JB/Simulations_3D
 
 image:
   width : 256 # in pix
