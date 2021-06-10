@@ -5,29 +5,44 @@ import numpy as np
 import shutil
 import re
 
-data_folder = ["/home/jb/Desktop/Data_single_loci/Simulation_06_05_21/"]
-dest_folder = "/home/jb/Desktop/Data_single_loci/Simulation_06_05_21/Training_data_raw/"
+np.random.seed(2)
 
-data_type = "Raw" #"Deconvolved" #
+main_folder = "/home/jb/Desktop/Data_single_loci/3D_simulations/2021-06-10_14-50"
+data_folder = ["/home/jb/Desktop/Data_single_loci/3D_simulations/2021-06-10_14-50/Raw",
+               "/home/jb/Desktop/Data_single_loci/3D_simulations/2021-06-10_14-50/Deconvolved"]
+gt_data_folder = "/home/jb/Desktop/Data_single_loci/3D_simulations/2021-06-10_14-50/Threshold_2"
 
-# Define the folders for the training and testing data
-# ----------------------------------------------------
+# According to the type of data we want to use, define the folder where the
+# training set will be saved
+# -------------------------- 
 
-os.chdir(dest_folder)
-if os.path.isdir('train'):
-    shutil.rmtree('train')
-    shutil.rmtree('test')
+data_types = ["Raw", "Deconvolved"]
+for n_type in range(len(data_types)):
+    
+    training_folder_name = "Training_data_" + data_types[n_type]
+    training_folder_path = os.path.join(main_folder, training_folder_name)
+    if os.path.isdir(training_folder_path):
+        shutil.rmtree(training_folder_path)
+    
+    os.mkdir(training_folder_path)
 
-os.mkdir('train')
-os.mkdir('train/raw')
-os.mkdir('train/label')
-
-os.mkdir('test')
-os.mkdir('test/raw')
-os.mkdir('test/label')
-
-for folder in data_folder:
-
+    # Define the folders for the training and testing data
+    # ----------------------------------------------------
+    
+    os.chdir(training_folder_path)
+    if os.path.isdir('train'):
+        shutil.rmtree('train')
+        shutil.rmtree('test')
+    
+    os.mkdir('train')
+    os.mkdir('train/raw')
+    os.mkdir('train/label')
+    
+    os.mkdir('test')
+    os.mkdir('test/raw')
+    os.mkdir('test/label')
+    
+    
     raw_data = []
     gt_data = []
 
@@ -44,23 +59,18 @@ for folder in data_folder:
         (See Toothy's implementation in the comments)
         '''
         return [atoi(c) for c in re.split(r'(\d+)', text)]
-
-    if data_type == "Deconvolved":
-        os.chdir(folder + 'Deconvolved')
-        raw_data = glob.glob('ROI_*_converted_decon.tif')
-    else:
-        os.chdir(folder + 'Raw')
-        raw_data = glob.glob('ROI_*.tif')
-
+    
+    
+    os.chdir(data_folder[n_type])
+    raw_data = glob.glob('ROI_*.tif')
     raw_data.sort(key=natural_keys)
     print(raw_data)
 
     for n in range(len(raw_data)):
         raw_data[n] = os.path.abspath(raw_data[n])
 
-    os.chdir(folder + 'GT')
+    os.chdir(gt_data_folder)
     gt_data = glob.glob('GT_ROI_*.tif')
-
     gt_data.sort(key=natural_keys)
     print(gt_data)
 
@@ -75,47 +85,51 @@ for folder in data_folder:
         raw = tifffile.imread(raw_data[n_file])
         gt = tifffile.imread(gt_data[n_file])
 
-        if data_type == "Deconvolved":
-            raw_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
-            gt_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/5)))
+        if data_types[n_type] == "Deconvolved":
+            raw_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/2)))
+            gt_small = np.zeros((raw.shape[2], raw.shape[3], round(raw.shape[1]/2)))
 
-            n_frame = round(raw.shape[1] / 5)
+            n_frame = round(raw.shape[1] / 2)
             for frame in range(n_frame):
-                raw_small[:, :, frame] = raw[0, 5 * frame, :, :]
-                gt_small[:, :, frame] = gt[5 * frame, :, :]
+                raw_small[:, :, frame] = raw[0, 2 * frame, :, :]
+                gt_small[:, :, frame] = gt[2 * frame, :, :]
 
-        elif data_type == "Raw":
+        elif data_types[n_type] == "Raw":
 
-            raw_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
-            gt_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/5)))
+            raw_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/2)))
+            gt_small = np.zeros((raw.shape[1], raw.shape[2], round(raw.shape[0]/2)))
 
-            n_frame = round(raw.shape[0]/5)
+            n_frame = round(raw.shape[0]/2)
             for frame in range(n_frame):
-                raw_small[:, :, frame] = raw[5*frame, :, :]
-                gt_small[:, :, frame] = gt[5 * frame, :, :]
+                raw_small[:, :, frame] = raw[2 * frame, :, :]
+                gt_small[:, :, frame] = gt[2 * frame, :, :]
 
     # Save the movies, either for the training or the testing set
     # -----------------------------------------------------------
 
         p = np.random.binomial(1, 0.85)
-
+        
         if p == 1:
-            os.chdir(dest_folder + 'train/raw')
+            saving_path = os.path.join(training_folder_path, 'train', 'raw')
         else:
-            os.chdir(dest_folder + 'test/raw')
-
+            saving_path = os.path.join(training_folder_path, 'test', 'raw')
+            
+        os.chdir(saving_path)
         name = str(len(glob.glob('*.tif'))) + "_raw.tif"
+
         with tifffile.TiffWriter(name) as tf:
             for n in range(n_frame):
                 im = raw_small[:, :, n]
                 tf.save(im.astype(np.uint16))
-
+        
         if p == 1:
-            os.chdir(dest_folder + 'train/label')
+            saving_path = os.path.join(training_folder_path, 'train', 'label')
         else:
-            os.chdir(dest_folder + 'test/label')
-
+            saving_path = os.path.join(training_folder_path, 'test', 'label')
+            
+        os.chdir(saving_path)
         name = str(len(glob.glob('*.tif'))) + "_label.tif"
+
         with tifffile.TiffWriter(name) as tf:
             for n in range(n_frame):
                 im = gt_small[:, :, n]
