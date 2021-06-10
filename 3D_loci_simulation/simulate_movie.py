@@ -18,7 +18,7 @@ class is receiving the following input parameters :
 
 import tifffile
 import numpy as np
-from astropy.modeling import models, fitting
+# from astropy.modeling import models, fitting
 
 
 # from tqdm import tqdm
@@ -54,7 +54,6 @@ class SimulateData:
         self.c = param["ground_truth"]["simulated_psf_height"]  # in nm
 
         self.bkg = param["image"]["background_intensity"]
-        self.threshold = param["image"]["SNR_threshold"]
 
         self.loci_coordinates = loci_coordinates
         self.fp_coordinates = fp_coordinates
@@ -85,7 +84,6 @@ class SimulateData:
 
         self.stack = np.zeros((self.Dx, self.Dy, self.Dz))
         self.bkg_stack = np.zeros((self.Dx, self.Dy, self.Dz))
-        self.gt_stack = np.zeros((self.Lx, self.Ly, self.Lz))
 
     def create_single_bkg_image(self, bkg_intensity, dx, dy):
         """
@@ -243,7 +241,7 @@ class SimulateData:
                 break
             
 
-    def simulate_raw_stack(self, nROI):
+    def simulate_raw_stack(self, nROI, path):
         """
         Create the stack of simulated images. The simulation is performed in two steps:
         - the false positive are first added to the background images
@@ -291,7 +289,8 @@ class SimulateData:
                                     int(self.Ly_psf / 2): int(self.Ly + self.Ly_psf / 2), :]
         
         name = "ROI_" + str(nROI) + ".tif"
-        with tifffile.TiffWriter(name) as tf:
+        full_name = path + "/" + name
+        with tifffile.TiffWriter(full_name) as tf:
 
             for n in range(self.Lz):
                 im = self.stack[:, :, n]
@@ -308,7 +307,7 @@ class SimulateData:
         return name
 
 
-    def simulate_ground_truth(self, nROI):
+    def simulate_ground_truth(self, nROI, threshold, path):
         """
         Simulate the ground truth images associated to the set of emitters coordinates. The process is performed in
         three steps :
@@ -327,7 +326,8 @@ class SimulateData:
         nROI : the number of the ROI. Used to create a unique name for the output stack.
         """
 
-        print('Simulate ground truth')
+        print('Simulate ground truth with threshold = {}'.format(threshold))
+        gt_stack = np.zeros((self.Lx, self.Ly, self.Lz))
 
         for n in range(self.n_locus):
             
@@ -350,30 +350,32 @@ class SimulateData:
                 SNR = self.calculate_SNR(x0, y0, z0, int_locus)
     
                 # check there is enough signal to allow a proper detection of the locus
-                if SNR > self.threshold:
+                if SNR > threshold:
         
                     # simulate the psf as an ellipsoid
                     for x, y, z in self.ellipsoid_coordinates:
                         if x + x0 < self.Lx and y + y0 < self.Ly and z + z0 < self.Lz:
-                            self.gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n + 1
+                            gt_stack[int(x + x0), int(y + y0), int(z + z0)] = n + 1
 
-        # Save the ground truth and the mask
-        # ----------------------------------        
+        # Save the ground truth
+        # ---------------------        
 
-        name = "GT_ROI_" + str(nROI) + ".tif"
+        name = path + "/GT_ROI_" + str(nROI) + ".tif"
         with tifffile.TiffWriter(name) as tf:
 
             for n in range(self.Lz):
-                im = self.gt_stack[:, :, n]
+                im = gt_stack[:, :, n]
                 tf.save(np.round(im).astype(np.uint16))
+                
+        # Save the projection of the mask (since it is not used for the training)
+        # ----------------------------------------------------------------------
 
-        name = "mask_ROI_" + str(nROI) + ".tif"
+        name = path + "/mask_ROI_" + str(nROI) + ".tif"
+        mask = np.sum(gt_stack, axis=2)
+        mask[mask > 0] = 1
+        
         with tifffile.TiffWriter(name) as tf:
-
-            for n in range(self.Lz):
-                im = self.gt_stack[:, :, n]
-                im[im > 0] = 1
-                tf.save(np.round(im).astype(np.uint16))
+            tf.save(np.round(mask).astype(np.uint16))
                 
                 
     def calculate_SNR(self, x0, y0, z0, I):
@@ -411,7 +413,6 @@ class SimulateData:
             snr[n] = 10*np.log10(I**2 / bkg_std**2)
         
         SNR = np.mean(snr)
-        print(SNR, snr, zmin, zmax)
         return SNR
         
 

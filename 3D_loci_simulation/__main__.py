@@ -10,10 +10,12 @@ import yaml
 import os
 from datetime import datetime
 import os.path as path
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import glob
 import numpy as np
 from shutil import copyfile
+
+np.random.seed(1)
 
 # Open the configuration file
 # ---------------------------
@@ -24,6 +26,7 @@ with open(path.join(path.dirname(__file__), "Config.yaml"), "r") as f:
 destinationfolder = config_parameters["destinationfolder"]
 mainfolder = config_parameters["mainfolder"]
 psf_folder = config_parameters["psffolder"]
+deconvolution_folder = config_parameters["deconvolution_folder"]
 
 # Look for psf data
 # -----------------
@@ -49,19 +52,52 @@ from simulate_movie import SimulateData
 if not path.exists(destinationfolder):
     os.mkdir(destinationfolder)
 
+simu_name = datetime.now().strftime("%Y-%m-%d_%H-%M")
 simulationdir = os.path.join(
-    destinationfolder, datetime.now().strftime("%Y-%m-%d_%H-%M")
-)
+    destinationfolder, simu_name)
 
 os.mkdir(simulationdir)
 os.chdir(simulationdir)
 
+# Save the config file in the repository in order to keep a trace of the
+# simulation parameters
+# ---------------------
+
+original = path.join(path.dirname(__file__), "Config.yaml")
+target = path.join(simulationdir, "Config.yaml")
+copyfile(original, target)
+
+# Create the folder for the raw images
+# ------------------------------------
+
+raw_folder = simulationdir + '/Raw'
+os.mkdir(raw_folder)
+
+# Create the folder structure for the different threshold
+# -------------------------------------------------------
+
+thresholds = config_parameters["image"]["SNR_threshold"]
+
+for n in range(len(thresholds)):
+    os.chdir(simulationdir)
+    dir_name = simulationdir + '/Threshold_' + str(n)
+    os.mkdir(dir_name)
+
 # Create the folder structure for the deconvolution
 # -------------------------------------------------
 
-os.mkdir('To_deconvolve')
-os.mkdir('To_deconvolve/folder_1')
-os.mkdir('To_deconvolve/folder_1/folder_2')
+# decon_simulationdir = os.path.join(
+#     deconvolution_folder, simu_name)
+# os.mkdir(decon_simulationdir)
+
+os.mkdir(os.path.join(simulationdir, 'To_deconvolve'))
+os.mkdir(os.path.join(simulationdir, 'To_deconvolve/folder_1'))
+os.mkdir(os.path.join(simulationdir, 'To_deconvolve/folder_1/folder_2'))
+
+deconvolution_dest_folder = os.path.join(simulationdir, 'To_deconvolve/folder_1/folder_2')
+
+# Calculate as many simulated images as there is ROI
+# --------------------------------------------------
 
 nROI = config_parameters["acquisition_data"]["nROI"]
 for roi in range(nROI):
@@ -81,13 +117,13 @@ for roi in range(nROI):
 
     N_detection = config_parameters["detection"]["number_detections_per_image"]
     n_locus = 0
-    while n_locus==0:
+    while n_locus<=0:
         n_locus = int(np.random.normal(N_detection, 20, 1))
     loci_coordinates = _loci.define_locus_coordinates(n_locus)
 
     N_false_positive = config_parameters["detection"]["number_false_positive_data"]
     n_fp = np.zeros((2,))
-    while np.all(n_fp == 0):
+    while np.all(n_fp <= 0):
         n_fp = np.random.normal(N_false_positive, 1000, 2)
             
     fp_coordinates_homogeneous = _loci.define_homogeneous_bkg_coordinates(n_fp[0].astype(int))
@@ -99,20 +135,29 @@ for roi in range(nROI):
     
     _stack = SimulateData(config_parameters, n_locus, loci_coordinates, np.sum(n_fp.astype(int)), fp_coordinates, psf_files)
     _stack.create_bkg_stack()
-    movie_name = _stack.simulate_raw_stack(roi)
+    movie_name = _stack.simulate_raw_stack(roi, raw_folder)
     
-    # Generate the ground truth images
-    # --------------------------------
+    # Generate the ground truth images for each value of the threshold
+    # ----------------------------------------------------------------
     
     _stack.create_ellipsoid_template()
-    _stack.simulate_ground_truth(roi)
+        
+    for n in range(len(thresholds)):
+        dir_name = simulationdir + '/Threshold_' + str(n)        
+        _stack.simulate_ground_truth(roi, thresholds[n], dir_name)
 
     # Make a copy of the stack in a folder for the deconvolution
     # ----------------------------------------------------------
 
+    original = os.path.join(raw_folder, movie_name)
+    
     folder_name = 'ROI_' + str(roi)
-    new_dir = os.path.join(simulationdir, 'To_deconvolve/folder_1/folder_2', folder_name)
+    new_dir = os.path.join(deconvolution_dest_folder, folder_name)
     os.mkdir(new_dir)
-
-    new_path = new_dir + '/' + movie_name
-    copyfile(movie_name, new_path)
+    target = new_dir + '/' + movie_name
+    
+    copyfile(original, target)
+    
+    
+    
+    
