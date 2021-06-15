@@ -31,26 +31,23 @@ lbl_cmap = random_label_cmap()
 # Define the folders where the trained model and the test data are saved
 # ----------------------------------------------------------------------
 
-model_dir_all = ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Simulation_3D/Simulated_data/Simulation_06_05_21/models']
+model_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_Deconvolved/models']
 
-model_name_all = ['stardist_20210506_simu_deconvolved',
-              'stardist_20210506_simu_deconvolved_2',
-              'stardist_20210506_simu_raw',
-              'stardist_20210506_simu_raw_2']
+model_name_all = ['stardist_20210611_simu_deconvolved_thresh_2']
 
-test_dir_all = [['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved/',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved_simulated'],
-            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved/',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/deconvolved_simulated'],
-            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw_simulated'],
-            ['/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw',
-             '/mnt/PALM_dataserv/DATA/JB/2021/Data_single_loci/Data_test_small/raw_simulated']]
+test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/deconvolved']]
 
-repeat = 10
+#test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_0_DPP/deconvolved',
+             # '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_2_DOC/deconvolved',
+             # '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Simulated_data/deconvolved']]
+
+# Indicate whether half of the planes should be removed
+# -----------------------------------------------------
+
+Remove_planes = True
+
+# For each model, calculate the segmented images
+# ----------------------------------------------
 
 for n_model in range(len(model_dir_all)):
 
@@ -103,9 +100,14 @@ for n_model in range(len(model_dir_all)):
             print(im_name)
 
             im = imread(X[n_im])
+            
+            if Remove_planes:
+                nplanes = im.shape[0]
+                im = im[0:nplanes:2,:,:]
+            
+            print(im.shape)
             im = normalize(im, 1, 99.8, axis=axis_norm)
             Lx = im.shape[1]
-            t = np.zeros(repeat)
 
             t0 = time.time()
             if Lx < 1000:
@@ -123,9 +125,6 @@ for n_model in range(len(model_dir_all)):
             print("Time elapsed: " + str(t1))
 
             nobjects[n_im] = np.max(np.unique(labels))
-            t_av[n_im] = np.median(t)
-            t_std[n_im] = np.std(t)
-
             mask = np.array(labels > 0, dtype=int)
 
             raw_name = im_name + '.tif'
