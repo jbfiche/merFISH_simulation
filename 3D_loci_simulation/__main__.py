@@ -123,8 +123,9 @@ for roi in range(nROI):
 
     N_false_positive = config_parameters["detection"]["number_false_positive_data"]
     n_fp = np.zeros((2,))
-    while np.all(n_fp <= 0):
-        n_fp = np.random.normal(N_false_positive, 1000, 2)
+    while n_fp[0] <= 0 or n_fp[1] <= 0:
+        #n_fp = np.random.normal(N_false_positive, 1000, 2)
+        n_fp = np.random.uniform(N_false_positive[0], N_false_positive[1], 2)
             
     fp_coordinates_homogeneous = _loci.define_homogeneous_bkg_coordinates(n_fp[0].astype(int))
     fp_coordinates_inhomogeneous = _loci.define_inhomogeneous_bkg_coordinates(n_fp[1].astype(int))
