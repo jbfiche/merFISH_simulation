@@ -375,7 +375,7 @@ class SimulateData:
         mask[mask > 0] = 1
         
         with tifffile.TiffWriter(name) as tf:
-            tf.save(np.round(mask).astype(np.uint16))
+            tf.save(np.round(mask).astype(np.uint8))
                 
                 
     def calculate_SNR(self, x0, y0, z0, I):
