@@ -4,18 +4,18 @@ destinationfolder : /mnt/grey/DATA/users/JB/Simulations_3D
 deconvolution_folder : /mnt/grey/DATA/users/JB/Simulations_3D
 
 image:
-  width : 256 # in pix
-  height : 256 # in pix
+  width : 128 # in pix
+  height : 128 # in pix
   pixel_size_nm : 100
   number_z_planes : 60
   z_spacing_nm : 250
   background_intensity : [15,70]
   background_step : [0.2,1]
   intensity_single_probe : 20
-  SNR_threshold : [21.4, 21.6, 21.8, 22, 22.2, 22.4]
+  SNR_threshold : [21.4, 21.6, 21.8, 22, 22.2]
 
 acquisition_data:
-  nROI : 10
+  nROI : 1000
 
 ground_truth :
   simulated_psf_width : 400 # in nm
@@ -28,8 +28,8 @@ psf :
   z_spacing_psf_nm : 100 # Spacing in nm between successive planes for the psf file
 
 detection:
-  number_detections_per_image : 50 # average number of detections per field of view
-  number_false_positive_data : 2500 # average number of false positive (single probe)
+  number_detections_per_image : 20 # average number of detections per field of view
+  number_false_positive_data : [100,4000] # average number of false positive (single probe)
   minimum_depth_um : 1 # to avoid having detections too close to the first or last frames
   loci_size_kb : 3
   number_probes : 45
