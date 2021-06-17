@@ -32,11 +32,12 @@ lbl_cmap = random_label_cmap()
 # Define the folders where the trained model and the test data are saved
 # ----------------------------------------------------------------------
 
-model_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_Deconvolved/models']
+model_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Raw/models']
 
-model_name_all = ['stardist_20210611_simu_deconvolved_thresh_2']
+model_name_all = ['stardist_20210616_simu_raw_thresh_4']
 
-test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/deconvolved']]
+test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Simulated_data/raw',
+                 '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/raw']]
 
 #test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_0_DPP/deconvolved',
              # '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_2_DOC/deconvolved',
@@ -45,7 +46,7 @@ test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/dec
 # Indicate whether half of the planes should be removed
 # -----------------------------------------------------
 
-Remove_planes = True
+Remove_planes = False
 
 # For each model, calculate the segmented images
 # ----------------------------------------------
@@ -101,10 +102,18 @@ for n_model in range(len(model_dir_all)):
             print(im_name)
 
             im = imread(X[n_im])
+            print(im.shape)
             
             if Remove_planes:
-                nplanes = im.shape[0]
-                im = im[0:nplanes:2,:,:]
+                nplanes = round(im.shape[0]/2)
+                
+                im_small = np.zeros((nplanes,im.shape[1],im.shape[2]))
+                print(im_small.shape)
+                for frame in range(nplanes):
+                    av = (im[ 2 * frame, :, :].astype(np.float) + im[ 2 * frame + 1, :, :].astype(np.float))/2
+                    im_small[frame, :, :]  = av.astype(np.uint16)
+                        
+                im = im_small
             
             print(im.shape)
             im = normalize(im, 1, 99.8, axis=axis_norm)
@@ -127,7 +136,7 @@ for n_model in range(len(model_dir_all)):
 
             nobjects[n_im] = np.max(np.unique(labels))
             # mask = np.array(labels > 0, dtype=int)
-            mask = np.sum(labels, axis=2)
+            mask = np.sum(labels, axis=0)
             mask[mask > 0] = 1
 
             raw_name = im_name + '.tif'
