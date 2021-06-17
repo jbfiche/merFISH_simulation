@@ -16,6 +16,7 @@ import shutil
 
 from glob import glob
 from tqdm import tqdm
+import tifffile
 from tifffile import imread
 from csbdeep.utils import Path, normalize
 from csbdeep.io import save_tiff_imagej_compatible
@@ -125,7 +126,9 @@ for n_model in range(len(model_dir_all)):
             print("Time elapsed: " + str(t1))
 
             nobjects[n_im] = np.max(np.unique(labels))
-            mask = np.array(labels > 0, dtype=int)
+            # mask = np.array(labels > 0, dtype=int)
+            mask = np.sum(labels, axis=2)
+            mask[mask > 0] = 1
 
             raw_name = im_name + '.tif'
             save_tiff_imagej_compatible(raw_name, im, axes='ZYX')
@@ -134,7 +137,10 @@ for n_model in range(len(model_dir_all)):
             save_tiff_imagej_compatible(label_name, labels, axes='ZYX')
 
             mask_name = im_name + '_mask.tif'
-            save_tiff_imagej_compatible(mask_name, mask, axes='ZYX')
+            with tifffile.TiffWriter(mask_name) as tf:
+                tf.save(np.round(mask).astype(np.uint8))
+            
+
 
         # print("The average computation time is " + str(np.mean(t)) + " +/- " + str(np.std(t)))
         #
