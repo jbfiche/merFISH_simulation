@@ -6,7 +6,6 @@ Created on Thu Jun 17 11:39:53 2021
 @author: fiche
 """
 
-
 from __future__ import print_function, unicode_literals, absolute_import, division
 import numpy as np
 import matplotlib
@@ -80,6 +79,7 @@ ax1.legend()
 
 for m in ('fp', 'tp', 'fn'):
     ax2.plot(taus, [s._asdict()[m] for s in stats], '.-', lw=2, label=m)
+    print(m, [s._asdict()[m] for s in stats])
 ax2.set_xlabel(r'IoU threshold $\tau$')
 ax2.set_ylabel('Number #')
 ax2.grid()
