@@ -31,18 +31,33 @@ from augmend import Augmend, FlipRot90, Elastic, Identity, IntensityScaleShift, 
 from tensorflow import keras
 from keras.callbacks import TensorBoard  #Visulization of Accuracy and loss
 
-
 np.random.seed(42)
 lbl_cmap = random_label_cmap()
 
-for n_training in range(2):
+# Define the number of trainings to be performed
+# ----------------------------------------------
 
-    if n_training == 0:
-        data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_Deconvolved'
-        model_name = 'stardist_20210611_simu_deconvolved_thresh_2'
-    else:
-        data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_Raw'
-        model_name = 'stardist_20210611_simu_raw_thresh_2'
+data_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Raw',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Deconvolved',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Deconvolved',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_2_Raw',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_2_Deconvolved',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_4_Raw',
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_4_Deconvolved',
+                ]
+            
+model_name_all = ['stardist_20210616_simu_raw_thresh_2',
+                  'stardist_20210616_simu_deconvolved_thresh_4',
+                  'stardist_20210616_simu_deconvolved_thresh_2',
+                  'stardist_20210616_simu_raw_thresh_2',
+                  'stardist_20210616_simu_deconvolved_thresh_2',
+                  'stardist_20210616_simu_raw_thresh_4',
+                  'stardist_20210616_simu_deconvolved_thresh_4']
+
+for n_training in range(len(data_dir_all)):
+        
+    data_dir = data_dir_all[n_training]
+    model_name = model_name_all[n_training]
         
     os.chdir(data_dir)
     
@@ -109,7 +124,7 @@ for n_training in range(2):
         train_patch_size = (30,64,64),
         train_batch_size = 4,
         backbone = 'resnet',
-        train_epochs = 700,
+        train_epochs = 500,
         train_steps_per_epoch = 100
     )
     
@@ -141,12 +156,12 @@ for n_training in range(2):
     # Define the parameters for the data augmentation
     # -----------------------------------------------
     
-    elastic_kwargs = dict(axis=(1,2), amount=10, use_gpu=model.config.use_gpu)
+    elastic_kwargs = dict(axis=(1,2), amount=7, use_gpu=model.config.use_gpu)
     #scale_kwargs = dict(axis=1, amount=1.5, use_gpu=model.config.use_gpu)
     aug = Augmend()
-    #aug.add([Scale(order=0,**scale_kwargs),Scale(order=0,**scale_kwargs)], probability=0.25)
+    #aug.add([Scale(order=0,**scale_kwargs),Scale(order=0,**scale_kwargs)], probability=0.5)
     aug.add([FlipRot90(axis=(1,2)),FlipRot90(axis=(1,2))])
-    #aug.add([Elastic(order=0,**elastic_kwargs),Elastic(order=0,**elastic_kwargs)], probability=0.5)
+    aug.add([Elastic(order=0,**elastic_kwargs),Elastic(order=0,**elastic_kwargs)], probability=0.5)
     aug.add([IntensityScaleShift(scale=(.6,2),shift=(-.2,.2)),Identity()])
     aug.add([AdditiveNoise(sigma=(0.05,0.05)),Identity()], probability=0.25)
     
@@ -157,6 +172,33 @@ for n_training in range(2):
     # Launch the training of the model
     # --------------------------------
     
-    model.train(X_trn, Y_trn, validation_data=(X_val,Y_val), augmenter=augmenter)
-    
+    model.train(X_trn, Y_trn, validation_data=(X_val,Y_val), augmenter=augmenter)   
     model.optimize_thresholds(X_val, Y_val)
+    
+    
+    # # Test the model using the validation data and save the statistics
+    # # ----------------------------------------------------------------
+    
+    # Y_val_pred = [model.predict_instances(x, n_tiles=model._guess_n_tiles(x), show_tile_progress=False)[0]
+    #           for x in tqdm(X_val)]
+    # taus = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    # stats = [matching_dataset(Y_val, Y_val_pred, thresh=t, show_progress=False) for t in tqdm(taus)]
+
+    # fig, (ax1,ax2) = plt.subplots(1,2, figsize=(15,5))
+
+    # for m in ('precision', 'recall', 'accuracy', 'f1', 'mean_true_score', 'mean_matched_score', 'panoptic_quality'):
+    #     ax1.plot(taus, [s._asdict()[m] for s in stats], '.-', lw=2, label=m)
+    # ax1.set_xlabel(r'IoU threshold $\tau$')
+    # ax1.set_ylabel('Metric value')
+    # ax1.grid()
+    # ax1.legend()
+    
+    # for m in ('fp', 'tp', 'fn'):
+    #     ax2.plot(taus, [s._asdict()[m] for s in stats], '.-', lw=2, label=m)
+    # ax2.set_xlabel(r'IoU threshold $\tau$')
+    # ax2.set_ylabel('Number #')
+    # ax2.grid()
+    # ax2.legend();
+    
+    # fig_name = data_dir + '/models/' + model_name + '/' + 'Statistics.png'
+    # fig.savefig(fig_name)
