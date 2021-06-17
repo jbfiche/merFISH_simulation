@@ -1,0 +1,89 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Jun 17 11:39:53 2021
+
+@author: fiche
+"""
+
+
+from __future__ import print_function, unicode_literals, absolute_import, division
+import numpy as np
+import matplotlib
+matplotlib.rcParams["image.interpolation"] = None
+import matplotlib.pyplot as plt
+# matplotlib inline
+# config InlineBackend.figure_format = 'retina'
+import os
+import sys
+
+from glob import glob
+from tqdm import tqdm
+from tifffile import imread
+from csbdeep.utils import Path, normalize
+
+from stardist import fill_label_holes, random_label_cmap, calculate_extents, gputools_available
+from stardist import Rays_GoldenSpiral
+from stardist.matching import matching, matching_dataset
+from stardist.models import Config3D, StarDist3D, StarDistData3D
+
+from tensorflow import keras
+from keras.callbacks import TensorBoard  #Visulization of Accuracy and loss
+        
+data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Raw'
+model_name = 'stardist_20210616_simu_raw_thresh_4'
+        
+os.chdir(data_dir)
+
+
+# Load the validation/testing data
+# --------------------------------
+
+X = sorted(glob('test/raw/*raw*.tif'))
+Y = sorted(glob('test/label/*label*.tif'))
+
+X_val = list(map(imread,X))
+Y_val = list(map(imread,Y))
+n_channel = 1 if X_val[0].ndim == 3 else X_val[0].shape[-1]
+
+# Normalize the data and calculate the anisotropy of the data
+# -----------------------------------------------------------
+
+axis_norm = (0,1,2)   # normalize channels independently
+# axis_norm = (0,1,2,3) # normalize channels jointly
+if n_channel > 1:
+    print("Normalizing image channels %s." % ('jointly' if axis_norm is None or 3 in axis_norm else 'independently'))
+    sys.stdout.flush()
+
+X_val = [normalize(x,1,99.8,axis=axis_norm) for x in tqdm(X_val)]
+Y_val = [fill_label_holes(y) for y in tqdm(Y_val)]
+
+
+# Test the model using the validation data and save the statistics
+# ----------------------------------------------------------------
+
+model = StarDist3D(None, name=model_name, basedir='models')
+
+Y_val_pred = [model.predict_instances(x, n_tiles=model._guess_n_tiles(x), show_tile_progress=False)[0]
+          for x in tqdm(X_val)]
+taus = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+stats = [matching_dataset(Y_val, Y_val_pred, thresh=t, show_progress=False) for t in tqdm(taus)]
+
+fig, (ax1,ax2) = plt.subplots(1,2, figsize=(15,5))
+
+for m in ('precision', 'recall', 'accuracy', 'f1', 'mean_true_score', 'mean_matched_score', 'panoptic_quality'):
+    ax1.plot(taus, [s._asdict()[m] for s in stats], '.-', lw=2, label=m)
+ax1.set_xlabel(r'IoU threshold $\tau$')
+ax1.set_ylabel('Metric value')
+ax1.grid()
+ax1.legend()
+
+for m in ('fp', 'tp', 'fn'):
+    ax2.plot(taus, [s._asdict()[m] for s in stats], '.-', lw=2, label=m)
+ax2.set_xlabel(r'IoU threshold $\tau$')
+ax2.set_ylabel('Number #')
+ax2.grid()
+ax2.legend();
+
+fig_name = data_dir + '/models/' + model_name + '/' + 'Statistics.png'
+fig.savefig(fig_name)
