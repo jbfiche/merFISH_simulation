@@ -29,8 +29,8 @@ from stardist.models import Config3D, StarDist3D, StarDistData3D
 from tensorflow import keras
 from keras.callbacks import TensorBoard  #Visulization of Accuracy and loss
         
-data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Raw'
-model_name = 'stardist_20210616_simu_raw_thresh_4'
+data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Raw'
+model_name = 'stardist_20210616_simu_raw_thresh_2'
         
 os.chdir(data_dir)
 

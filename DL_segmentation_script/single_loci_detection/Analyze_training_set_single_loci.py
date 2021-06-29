@@ -26,7 +26,7 @@ np.random.seed(42)
 lbl_cmap = random_label_cmap()
 
 
-data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Raw'
+data_dir = '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Deconvolved'
 
 os.chdir(data_dir)
 

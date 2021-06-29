@@ -37,22 +37,16 @@ lbl_cmap = random_label_cmap()
 # Define the number of trainings to be performed
 # ----------------------------------------------
 
-data_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Raw',
+data_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Deconvolved',
                 '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Deconvolved',
                 '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_2_Deconvolved',
-                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_2_Raw',
-                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_2_Deconvolved',
-                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_4_Raw',
-                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-16_10-51/Training_data_thresh_4_Deconvolved',
-                ]
+                '/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Deconvolved']
             
-model_name_all = ['stardist_20210616_simu_raw_thresh_2',
-                  'stardist_20210616_simu_deconvolved_thresh_4',
-                  'stardist_20210616_simu_deconvolved_thresh_2',
-                  'stardist_20210616_simu_raw_thresh_2',
-                  'stardist_20210616_simu_deconvolved_thresh_2',
-                  'stardist_20210616_simu_raw_thresh_4',
-                  'stardist_20210616_simu_deconvolved_thresh_4']
+model_name_all = ['stardist_20210618_simu_deconvolved_thresh_2_01',
+                  'stardist_20210618_simu_deconvolved_thresh_4_01',
+                  'stardist_20210618_simu_deconvolved_thresh_2_02',
+                  'stardist_20210618_simu_deconvolved_thresh_4_02']
+
 
 for n_training in range(len(data_dir_all)):
         
@@ -157,9 +151,9 @@ for n_training in range(len(data_dir_all)):
     # -----------------------------------------------
     
     elastic_kwargs = dict(axis=(1,2), amount=7, use_gpu=model.config.use_gpu)
-    #scale_kwargs = dict(axis=1, amount=1.5, use_gpu=model.config.use_gpu)
+    #scale_kwargs = dict(axis=1, amount=1.2, use_gpu=model.config.use_gpu)
     aug = Augmend()
-    #aug.add([Scale(order=0,**scale_kwargs),Scale(order=0,**scale_kwargs)], probability=0.5)
+    #aug.add([Scale(order=0,**scale_kwargs),Scale(order=0,**scale_kwargs)], probability=0.25)
     aug.add([FlipRot90(axis=(1,2)),FlipRot90(axis=(1,2))])
     aug.add([Elastic(order=0,**elastic_kwargs),Elastic(order=0,**elastic_kwargs)], probability=0.5)
     aug.add([IntensityScaleShift(scale=(.6,2),shift=(-.2,.2)),Identity()])

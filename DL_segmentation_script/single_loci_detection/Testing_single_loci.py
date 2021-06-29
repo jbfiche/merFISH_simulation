@@ -32,12 +32,12 @@ lbl_cmap = random_label_cmap()
 # Define the folders where the trained model and the test data are saved
 # ----------------------------------------------------------------------
 
-model_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Raw/models']
+model_dir_all = ['/mnt/grey/DATA/users/JB/Simulations_3D/2021-06-11_10-54/Training_data_thresh_4_Deconvolved/models']
 
-model_name_all = ['stardist_20210616_simu_raw_thresh_4']
+model_name_all = ['stardist_20210618_simu_deconvolved_thresh_4_02']
 
-test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Simulated_data/raw',
-                 '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/raw']]
+test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/deconvolved']]
+                 #'/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Real_data/deconvolved']]
 
 #test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_0_DPP/deconvolved',
              # '/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Embryo_2_DOC/deconvolved',
@@ -46,7 +46,7 @@ test_dir_all = [['/mnt/grey/DATA/users/JB/Simulations_3D/Test_data/Simulated_dat
 # Indicate whether half of the planes should be removed
 # -----------------------------------------------------
 
-Remove_planes = False
+Remove_planes = True
 
 # For each model, calculate the segmented images
 # ----------------------------------------------
